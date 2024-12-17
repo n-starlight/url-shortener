@@ -5,16 +5,21 @@ import hashlib
 from typing import Union
 from sqlalchemy import text
 from fastapi.responses import RedirectResponse
+from dotenv import load_dotenv
+import os
 
 from db.connection import get_db_connection
 
+load_dotenv()
+
+
 app = FastAPI()
-
-
 
 class LongUrl(BaseModel):
     url_link:str
     custom_slug:Union[str, None] = None
+
+DOMAIN="https://heystarlette/"
 
 
 @app.get("/")
@@ -67,6 +72,7 @@ def get_url(short_code,conn):
 
 @app.post("/shorten")
 def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):  
+    short_code=payload.custom_slug
     if short_code:
         if check_code_exists(db_conn,short_code):
             raise HTTPException(status_code=500,detail='Please enter a unique code ,it already exists')
@@ -77,9 +83,7 @@ def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):
 
     newinsert= save_url(db_conn,original_url=payload.url_link,short_code=short_code)
     print('newinsert',newinsert)
-    # print(newinsert[2])
-    # print(newinsert[0])
-    response={"short_url":f"https://heystarlette/{newinsert[2]}"}
+    response={"short_url":f"{DOMAIN}{newinsert[2]}"}
 
     return response
 
@@ -90,9 +94,9 @@ def redirect_url(short_code:str,db_conn=Depends(get_db_connection)):
     if not url:
        raise HTTPException(status_code=404, detail="URL not found")
     print("url",url)
-    return RedirectResponse(url=url)
-    # response = {"original_url": url}
-    # return response
+    # return RedirectResponse(url=url)
+    response = {"original_url": url}
+    return response
 
 
 # change to  async mode when needed later 

@@ -10,7 +10,7 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-# DATABASE_URL form : "postgresql://user:password@localhost/URL_SHORTENER"
+# DATABASE_URL format : "postgresql://user:password@localhost/URL_SHORTENER"
 
 engine = create_engine(DATABASE_URL, echo=True)
 
