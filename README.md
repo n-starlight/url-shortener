@@ -15,8 +15,14 @@ We will focus on the http_req_duration for overall performance
 4) 99% requests took ~ 195 ms or less(for further 4.2% rise in requests from 95 to 99, request process time increment is 98% which is huge for only 4 more requests )
 5) Last request as total requests 100 took max=218.94ms
 
-
+For get request
 ![image](https://github.com/user-attachments/assets/088ab68e-3159-45f6-b15b-06564a7a9c05)
+
+
+For get request , sleep(0.1s instead of 1s)
+
+![image](https://github.com/user-attachments/assets/b3f6529b-b04f-41e0-9c65-e835a2805e1f)
+
 
 
 
