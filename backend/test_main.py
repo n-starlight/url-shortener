@@ -14,9 +14,9 @@ def test_endpoints():
     short_url=post_res["short_url"]
     short_code=short_url
 
-    get_response=client.get(f'/redirect?short_code={short_code}')
-    assert get_response.status_code == 200
-    get_res=get_response.json()["original_url"]
+    get_response=client.get(f'/redirect?short_code={short_code}',follow_redirects=False)
+    assert get_response.status_code == 307
+    get_res=get_response.headers["Location"]
     assert get_res==input_url
 
     
