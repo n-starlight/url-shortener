@@ -31,12 +31,29 @@ Assumption 1 req takes minimal amount of time in ms so ignoring that .
 For a sleep duration of 1s each user can send 1 request per sec .
 For a sleep duration of 0.1s each user can send 10 requests per sec .
 
-Scale to 60 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 60 ,duration '20s' 4) and stay there for '60s' 5) ramp down to 0 in '10s'
+Put requests
+1) Scale to 60 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 60 ,duration '20s' 4) and stay there for '60s' 5) ramp down to 0 in '10s'
 
 ![image](https://github.com/user-attachments/assets/a3783664-f6ec-4e3c-adfd-9117af8bf2eb)
 
-Scale to 100 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 100 ,duration '40s'  4) ramp down to 0 in '10s'
+2) Scale to 100 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 100 ,duration '40s'  4) ramp down to 0 in '10s'
 ![image](https://github.com/user-attachments/assets/37983e65-9742-40c1-9964-547c7cd216bf)
+
+3)Scale to 100 vus in 1) { duration: '80s', target: 100 }, 2) ramp down to 0 in 10s
+![image](https://github.com/user-attachments/assets/3289edbc-6136-450e-97f2-139e0437bf8e)
+
+Duration of 1min 20s is sufficient for scaling to 100 vus .
+
+4)   { duration: '2m', target: 100 },{ duration: '5m', target: 200 },{ duration: '10s', target: 0 }
+![image](https://github.com/user-attachments/assets/0316ea8e-2315-423b-a7df-fcfa0ef1482b)
+
+requests start getting timed out even for this many concurrent calls with specified durations { duration: '3m', target: 100 },{ duration: '12m', target: 150 },  { duration: '10s', target: 0 }, 
+
+
+
+Get requests
+2)
+![image](https://github.com/user-attachments/assets/d78c6f76-2d5e-4468-b644-18ab09eb7081)
 
 
 
