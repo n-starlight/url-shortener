@@ -31,6 +31,15 @@ Assumption 1 req takes minimal amount of time in ms so ignoring that .
 For a sleep duration of 1s each user can send 1 request per sec .
 For a sleep duration of 0.1s each user can send 10 requests per sec .
 
+Scale to 60 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 60 ,duration '20s' 4) and stay there for '60s' 5) ramp down to 0 in '10s'
+
+![image](https://github.com/user-attachments/assets/a3783664-f6ec-4e3c-adfd-9117af8bf2eb)
+
+Scale to 100 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 100 ,duration '40s'  4) ramp down to 0 in '10s'
+![image](https://github.com/user-attachments/assets/37983e65-9742-40c1-9964-547c7cd216bf)
+
+
+
 
 
    
