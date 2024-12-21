@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.exc import SQLAlchemyError
 import os
 import logging
@@ -10,18 +11,30 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
 # DATABASE_URL format : "postgresql://user:password@localhost/URL_SHORTENER"
 
-engine = create_engine(DATABASE_URL, echo=True)
+#Create database engine
+
+try:
+    engine = create_engine(DATABASE_URL, echo=True)
+except Exception as e:
+    print(f"Error connecting to the database: {e}")
+    exit(1)
+
+# try:
+#     engine = create_async_engine(DATABASE_URL)
+# except Exception as e:
+#     print(f"Error connecting to the database: {e}")
+#     exit(1)
 
 # Dependency for database connection
-def get_db_connection():
-    conn = None
+async def get_db_connection():
+    # conn
     try:
-        conn = engine.connect()
-        logger.info("Wohoo connected !!")
-        # return conn
-        yield conn
+        with engine.connect() as conn:
+            logger.info("Wohoo connected !!")
+            yield conn #use yield as it will be used as a dependency
     except SQLAlchemyError as e:
         logger.error(f"SQLAlchemyError occurred: {e}")
         raise  # Propagate the error
@@ -31,27 +44,12 @@ def get_db_connection():
         raise  # Re-raise the exception after logging it to propagate errors 
 
     #comment below while using test_query
-    finally:
-        if conn:
-            conn.close()
-            logger.info("Database connection closed.")
+    # finally:
+    #     if conn:
+    #         conn.close()
+    #         logger.info("Database connection closed.")
 
-# def test_query():
-#     query='SELECT COUNT(*) FROM url_shortener'
-#     try:
-#         with get_db_connection() as conn:
-#             result=conn.execute(text(query))
-#         row=result.fetchone()
-#         print("Query executed successfully.")
-#         print("Row:", row)
-#     except SQLAlchemyError as e:
-#         print(f"SQLAlchemy error executing query: {e}")
-#     except Exception as e:
-#         print(f"Error executing query: {e}")
-#     finally:
-#         if conn:
-#             conn.close()
-#             print("Connection closed.")
+
 
 # if __name__ == '__main__':
     # test_query()

@@ -23,13 +23,13 @@ DOMAIN="https://heystarlette/"
 
 API_URL="http://127.0.0.1:8000/"
 
-
+ 
 @app.get("/")
 def read_root():
     return {"Url shortener active"}
 
 def check_code_exists(conn,short_code:str):
-    query=text("""SELECT id,short_code FROM url_shortener WHERE short_code = :short_code """) #short_code is indexed
+    query=text("""SELECT original_url,short_code FROM url_shortener WHERE short_code = :short_code """) #short_code is indexed
     result=conn.execute(query,{"short_code":short_code}) # will result to None for empty result
     resultfetch=result.fetchone()
     print(f'result.fetchone(){resultfetch},result :{result}')
@@ -79,12 +79,7 @@ def get_url(short_code,conn):
     print("res",fetchresult)
     return fetchresult[0] if fetchresult else None
 
-def getPayloadId(long_url,conn):
-    query=text("SELECT id,short_code FROM url_shortener WHERE original_url = :original_url")
-    result=conn.execute(query,{"original_url":long_url})
-    fetchresult=result.fetchone()
-    print("res",fetchresult)
-    return fetchresult if fetchresult else None
+
 
 
 # def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):  
@@ -105,13 +100,14 @@ def getPayloadId(long_url,conn):
 
 @app.post("/shorten")
 def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)): 
+   
     hash_code=hashlib.md5(payload.url_link.encode()).hexdigest()[:6]
     code_exists=check_code_exists(db_conn,hash_code) 
-    code_exists_id=code_exists[0]
-    code_exists_scode=code_exists[1]
+    code_exists_url=code_exists[0] if code_exists else None
+    code_exists_scode=code_exists[1] if code_exists else None
     
     if code_exists_scode:
-        if code_exists_id:
+        if code_exists_url==payload.url_link:
             short_code=hash_code
             response={"short_url":f"{short_code}"}
         else:
@@ -121,11 +117,14 @@ def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):
             response={"short_url":f"{newinsert[2]}"}
             
     else:
+        short_code=hash_code
         newinsert= save_url(db_conn,original_url=payload.url_link,short_code=short_code)
         print('newinsert',newinsert)
         response={"short_url":f"{newinsert[2]}"}
     
     return response
+
+
 
 
 @app.get("/redirect")
@@ -137,9 +136,9 @@ def redirect_url(short_code:str,db_conn=Depends(get_db_connection)):
     # if not url.startswith(('http://','https://')):
     #     url= 'http://' + url
     print("url",url)
-    # return RedirectResponse(url=url)
-    response = {"original_url": url}
-    return response
+    return RedirectResponse(url=url,status_code=307)
+    # response = {"original_url": url}
+    # return response
 
 
 # change to  async mode when needed later 
