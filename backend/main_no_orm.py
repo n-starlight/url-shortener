@@ -4,13 +4,11 @@ from fastapi import HTTPException,Depends
 import hashlib
 from typing import Union
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
-from dotenv import load_dotenv
-import os
+
 
 from db.connection import get_db_connection
-
-load_dotenv()
 
 
 app = FastAPI()
@@ -35,12 +33,12 @@ async def check_code_exists(conn,short_code:str):
     print(f'result.fetchone(){resultfetch},result :{result}')
     return resultfetch 
 
-async def retry_ifnot_unq(short_code:str,payload,db_conn):
+async def retry_ifnot_unq(short_code:str,url,db_conn):
     
     max_attempts = 5
     attempts = 0
     while True:
-        hash_code_new = hashlib.md5(f"{payload.url_link}{attempts}".encode()).hexdigest()[:6]
+        hash_code_new = hashlib.md5(f"{url}{attempts}".encode()).hexdigest()[:6]
         code_exists=await check_code_exists(db_conn,hash_code_new) 
         code_exists_scode=code_exists[1] if code_exists else None 
         if not code_exists_scode:
@@ -60,17 +58,32 @@ async def save_url(conn,original_url:str,short_code:str):
     query=text("""
     INSERT INTO url_shortener(original_url, short_code)
     VALUES(:original_url,:short_code)
-    ON CONFLICT(short_code) DO NOTHING
     RETURNING id, original_url, short_code, created_at;  
     """)  # as we are not projecting the result so returning,like it will still create it(result) but result.fetchone() won't work 
     #and error will be shown in response body
     
     result=await conn.execute(query,{"original_url": original_url, "short_code": short_code})
-    await conn.commit() # necessary to commit explicitly as when post called again (new transaction) it won't be able to see changes
-    print("result",result)
-    fetchresult=result.fetchone()
-    print("resultfetch",fetchresult)
-    return fetchresult 
+    try:
+       await conn.commit() # necessary to commit explicitly as when post called again (new transaction) it won't be able to see changes
+       print("result",result)
+       fetchresult=result.fetchone()
+       print("resultfetch",fetchresult)
+       return fetchresult 
+    except IntegrityError:
+        await conn.rollback()
+        code_exists=await check_code_exists(conn,short_code) 
+        code_exists_url=code_exists[0] if code_exists else None
+        code_exists_scode=code_exists[1] if code_exists else None
+    
+        if code_exists_scode:
+           if code_exists_url==original_url:
+               return fetchresult
+           else:
+               short_code=await retry_ifnot_unq(short_code,original_url,conn)
+               newinsert= await save_url(conn,original_url,short_code)
+               return newinsert
+
+     
         
     
 
@@ -113,7 +126,7 @@ async def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):
             short_code=hash_code
             response={"short_url":f"{short_code}"}
         else:
-            short_code=await retry_ifnot_unq(hash_code,payload,db_conn)
+            short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_conn)
             newinsert= await save_url(db_conn,original_url=payload.url_link,short_code=short_code)
             print('newinsert',newinsert)
             response={"short_url":f"{newinsert[2]}"}

@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        { duration: '10s', target: 500 }, 
+        { duration: '1s', target: 400 }, 
         // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
@@ -65,6 +65,6 @@ export default function(){
     //     "redirection is correct" : (getres) =>getres.headers['Location']===TEST_URL
     // });
 
-    sleep(1);
+    // sleep(1);
 
 }
