@@ -6,3 +6,10 @@ SQLAlchemy
 httpx
 pytest
 asyncpg
+pydantic
+
+# async tests --
+pytest-asyncio
+anyio
+trio
+asyncio

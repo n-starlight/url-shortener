@@ -5,17 +5,17 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        // { duration: '10s', target: 10 },  // Start with 10 users for 10 seconds
-        // { duration: '10s', target: 50 },  // Ramp up to 50 users for 10 seconds
+        { duration: '10s', target: 500 }, 
+        // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
         // { duration: '60s', target: 100 }, 
-        { duration: '3m', target: 100 },
-        { duration: '12m', target: 150 }, 
+        // { duration: '2m', target: 150 },
+        // { duration: '4m', target: 200 }, 
         // { duration: '10m', target: 200 }, 
         // { duration: '30s', target: 500 },
         // { duration: '30s', target: 1000 }, 
-        { duration: '10s', target: 0 },   // Gradually ramp down to 0 users
+        // { duration: '10s', target: 0 },   // Gradually ramp down to 0 users
     ],
     thresholds: {
         http_req_duration: ['p(95)<500'], // 95% of requests should complete within 500ms

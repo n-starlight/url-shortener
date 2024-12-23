@@ -3,12 +3,14 @@ from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
 from typing import Union
-from sqlalchemy import text
+from sqlalchemy import text,select
+from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
-import os
+from sqlalchemy.ext.asyncio import  AsyncSession
 
-from db.connection import get_db_connection
+from db.conn_session import get_session
+from db.schema import URL_SHORTENER
 
 load_dotenv()
 
@@ -24,62 +26,64 @@ DOMAIN="https://heystarlette/"
 API_URL="http://127.0.0.1:8000/"
 
  
-@app.get("/")
-def read_root():
-    return {"Url shortener active"}
+# @app.get("/")
+# def read_root():
+#     return {"Url shortener active"}
 
-def check_code_exists(conn,short_code:str):
-    query=text("""SELECT original_url,short_code FROM url_shortener WHERE short_code = :short_code """) #short_code is indexed
-    result=conn.execute(query,{"short_code":short_code}) # will result to None for empty result
-    resultfetch=result.fetchone()
-    print(f'result.fetchone(){resultfetch},result :{result}')
-    return resultfetch 
+async def check_code_exists(session,short_code:str):
+    result = await session.execute(
+       select(URL_SHORTENER.original_url,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==short_code)
+    )
+    # new_res=result.scalars()
+    # print(result)
+    # print("first",result.first())
+    # print("all",result.all())
+    # print("curr",result.first())
+    return result.first()
 
-def retry_ifnot_unq(short_code:str,payload,db_conn):
+
+async def retry_ifnot_unq(short_code:str,payload,session):
     
     max_attempts = 5
     attempts = 0
     while True:
-        
-        if check_code_exists(db_conn,short_code)[1]:
+        hash_code_new = hashlib.md5(f"{payload.url_link}{attempts}".encode()).hexdigest()[:6]
+        code_exists=await check_code_exists(session,hash_code_new) 
+        code_exists_scode=code_exists.URL_SHORTENER.short_code if code_exists else None 
+        if not code_exists_scode:
             break
         attempts+=1
 
        
 
         if attempts>=max_attempts:
-            raise HTTPException(status_code=500,detail='Please enter a unique code ,couldn''t generate unique code')
+            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
         
-        short_code = hashlib.md5(f"{payload.url_link}{attempts}".encode()).hexdigest()[:6]
-       
+        
+    short_code=hash_code_new
     return short_code
 
-def save_url(conn,original_url:str,short_code:str):
-    query=text("""
-    INSERT INTO url_shortener(original_url, short_code)
-    VALUES(:original_url,:short_code)
-    ON CONFLICT(short_code) DO NOTHING
-    RETURNING id, original_url, short_code, created_at;  
-    """)  # as we are not projecting the result so returning,like it will still create it(result) but result.fetchone() won't work 
-    #and error will be shown in response body
-    
-    result=conn.execute(query,{"original_url": original_url, "short_code": short_code})
-    conn.commit() # necessary to commit explicitly as when post called again (new transaction) it won't be able to see changes
-    print("result",result)
-    fetchresult=result.fetchone()
-    print("resultfetch",fetchresult)
-    return fetchresult 
-        
+async def save_url(session,original_url:str,short_code:str):
+    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code)
+    session.add(new_url)
+    try:
+        await session.commit()
+        await session.refresh(new_url)
+        return new_url
+    except IntegrityError:
+        await session.rollback()
+        return new_url 
     
 
-def get_url(short_code,conn):
-    query=text(""" SELECT original_url FROM url_shortener WHERE short_code = :short_code """)
-    result=conn.execute(query,{"short_code":short_code})
-    fetchresult=result.fetchone()
-    print("res",fetchresult)
-    return fetchresult[0] if fetchresult else None
+async def get_url(short_code,session):
+   
+        result = await session.execute(
+           select(URL_SHORTENER.original_url).where(URL_SHORTENER.short_code==short_code)
+        )
+        fetchresult=result.first()
+        return fetchresult if fetchresult else None
 
-
+    
 
 
 # def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):  
@@ -99,28 +103,28 @@ def get_url(short_code,conn):
 #     return response
 
 @app.post("/shorten")
-def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)): 
+async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_session)): 
    
     hash_code=hashlib.md5(payload.url_link.encode()).hexdigest()[:6]
-    code_exists=check_code_exists(db_conn,hash_code) 
-    code_exists_url=code_exists[0] if code_exists else None
-    code_exists_scode=code_exists[1] if code_exists else None
+    code_exists=await check_code_exists(db_session,hash_code)
+    code_exists_url=code_exists.original_url if code_exists else None
+    code_exists_scode=code_exists.short_code if code_exists else None
     
     if code_exists_scode:
         if code_exists_url==payload.url_link:
             short_code=hash_code
             response={"short_url":f"{short_code}"}
         else:
-            short_code=retry_ifnot_unq(hash_code,payload,db_conn)
-            newinsert= save_url(db_conn,original_url=payload.url_link,short_code=short_code)
+            short_code=await retry_ifnot_unq(hash_code,payload,db_session)
+            newinsert= await save_url(db_session,original_url=payload.url_link,short_code=short_code)
             print('newinsert',newinsert)
-            response={"short_url":f"{newinsert[2]}"}
+            response={"short_url":f"{newinsert.short_code}"}
             
     else:
         short_code=hash_code
-        newinsert= save_url(db_conn,original_url=payload.url_link,short_code=short_code)
+        newinsert=await save_url(db_session,original_url=payload.url_link,short_code=short_code)
         print('newinsert',newinsert)
-        response={"short_url":f"{newinsert[2]}"}
+        response={"short_url":f"{newinsert.short_code}"}
     
     return response
 
@@ -128,20 +132,18 @@ def shorten_url(payload:LongUrl,db_conn=Depends(get_db_connection)):
 
 
 @app.get("/redirect")
-def redirect_url(short_code:str,db_conn=Depends(get_db_connection)):
-    url=  get_url(short_code,db_conn)
+async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_session)):
+    url= await get_url(short_code,db_session)
 
     if not url:
        raise HTTPException(status_code=404, detail="URL not found")
-    # if not url.startswith(('http://','https://')):
-    #     url= 'http://' + url
     print("url",url)
-    return RedirectResponse(url=url,status_code=307)
+    return RedirectResponse(url=url.original_url,status_code=307)
     # response = {"original_url": url}
     # return response
 
 
-# change to  async mode when needed later 
+
     
     
 
