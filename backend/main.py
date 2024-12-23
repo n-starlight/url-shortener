@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
 from typing import Union
-from sqlalchemy import text,select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
@@ -42,12 +42,12 @@ async def check_code_exists(session,short_code:str):
     return result.first()
 
 
-async def retry_ifnot_unq(short_code:str,payload,session):
+async def retry_ifnot_unq(short_code:str,url,session):
     
     max_attempts = 5
     attempts = 0
     while True:
-        hash_code_new = hashlib.md5(f"{payload.url_link}{attempts}".encode()).hexdigest()[:6]
+        hash_code_new = hashlib.md5(f"{url}{attempts}".encode()).hexdigest()[:6]
         code_exists=await check_code_exists(session,hash_code_new) 
         code_exists_scode=code_exists.URL_SHORTENER.short_code if code_exists else None 
         if not code_exists_scode:
@@ -72,7 +72,19 @@ async def save_url(session,original_url:str,short_code:str):
         return new_url
     except IntegrityError:
         await session.rollback()
-        return new_url 
+        # return new_url   can return directly without below checks if there was no hash collision issue with  different users different payloads , hash code not already existing in db 
+        code_exists=await check_code_exists(session,short_code)
+        code_exists_url=code_exists.original_url if code_exists else None
+        code_exists_scode=code_exists.short_code if code_exists else None
+        if code_exists_scode:
+            if code_exists_url==original_url:
+               return new_url
+            else:
+               short_code=await retry_ifnot_unq(short_code,original_url,session)
+               newinsert= await save_url(session,original_url,short_code)
+               return newinsert
+        
+        
     
 
 async def get_url(short_code,session):
@@ -115,7 +127,7 @@ async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_sessio
             short_code=hash_code
             response={"short_url":f"{short_code}"}
         else:
-            short_code=await retry_ifnot_unq(hash_code,payload,db_session)
+            short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
             newinsert= await save_url(db_session,original_url=payload.url_link,short_code=short_code)
             print('newinsert',newinsert)
             response={"short_url":f"{newinsert.short_code}"}
@@ -142,6 +154,14 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
     # response = {"original_url": url}
     # return response
 
+
+# Handling of race conditions --
+#A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 
+# that the outcome depends on the timing or order of execution.
+# 1) Same payload at same time ( more than 1 user requests short code for same url at same time)
+# one requests succeeds , other requests will cause integrity error as short code should be unique, but as the database does not have user specificness
+#so return the same short code. 
+# 2) Different payload with same hash codes which don't already exist, added the integrity error checks to handle that .
 
 
     
