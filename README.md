@@ -25,38 +25,36 @@ For get request , sleep(0.1s instead of 1s)
 
 
 Test duration 10s -- 
-Assumption 1 req takes minimal amount of time in ms so ignoring request process times once to find approx per user request frequency .
+Assumption 1 req takes minimal amount of time here so ignoring request process times once to find approx per user request frequency .
 For a sleep duration of 1s each user can send 1 request per sec .
 For a sleep duration of 0.1s each user can send 10 requests per sec .
 
 Put requests
-1) Scale to 60 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 60 ,duration '20s' 4) and stay there for '60s' 5) ramp down to 0 in '10s'
+1) 60 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 60 ,duration '20s' 4) and stay there for '60s' 5) ramp down to 0 in '10s'
 
 ![image](https://github.com/user-attachments/assets/a3783664-f6ec-4e3c-adfd-9117af8bf2eb)
 
-2) Scale to 100 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 100 ,duration '40s'  4) ramp down to 0 in '10s'
+2) 100 concurrent api calls(vus) in stages of 1) ramp up  to 10 ,duration -'10s' 2) ramp up to 50 , duration - '10s' 3) ramp up to 100 ,duration '40s'  4) ramp down to 0 in '10s'
 ![image](https://github.com/user-attachments/assets/37983e65-9742-40c1-9964-547c7cd216bf)
 
-3)Scale to 100 vus in 1) { duration: '80s', target: 100 }, 2) ramp down to 0 in 10s
+3)100 vus in 1) { duration: '80s', target: 100 }, 2) ramp down to 0 in 10s
 ![image](https://github.com/user-attachments/assets/3289edbc-6136-450e-97f2-139e0437bf8e)
 
-Duration of 1min 20s is sufficient for taking load of 100 vus .
+While increasing load gradually over a duration of 1 min 20s is sufficient for taking load of 100 concurrent calls, not to conclude anything with this,anyway after some specific time until further duration completion there will 100 concurrent calls for 100 vus.
 
 4)   { duration: '2m', target: 100 },{ duration: '5m', target: 200 },{ duration: '10s', target: 0 }
 ![image](https://github.com/user-attachments/assets/0316ea8e-2315-423b-a7df-fcfa0ef1482b)
 
-requests start getting timed out even for 150 concurrent calls ,Database is the bottleneck here--
+requests start getting timed out even for 150 concurrent calls ,
+Database is the bottleneck here--
 QueuePool limit of size 5 overflow 10 reached, connection timed out, timeout 30.00
 As there are lots of I/O bound operations so using asynchronosity will help.
 
-After adding async functionality req failed error is not occuring
+After adding async functionality let's see the break point of request time outs -- 
 5){ duration: '3m', target: 100 },{ duration: '12m', target: 150 }, { duration: '10s', target: 0 }
 ![image](https://github.com/user-attachments/assets/7e42087d-781b-474c-bec8-027ce8c1d610)
 
-6){ duration: '10s', target: 50 },{ duration: '80s', target: 100 }, { duration: '3m', target: 150 },{ duration: '6m', target: 200 }, { duration: '10s', target: 0 }
-![image](https://github.com/user-attachments/assets/2267b328-4bf9-44de-939e-a6816656aada)
-
-7){ duration: '10s', target: 50 },{ duration: '60s', target: 100 }, { duration: '2m', target: 150 },{ duration: '4m', target: 200 },{ duration: '10s', target: 0 }
+6){ duration: '10s', target: 50 },{ duration: '60s', target: 100 }, { duration: '2m', target: 150 },{ duration: '4m', target: 200 },{ duration: '10s', target: 0 }
 ![image](https://github.com/user-attachments/assets/f815155e-e1fe-48e1-ad69-d556217ad9bb)
 
 Okay let's see how many concurrent calls it can handle for '10s' duration ? 
@@ -81,18 +79,20 @@ Up to 400 looping VUs for 10s over 1 stages (gracefulRampDown: 30s, gracefulStop
      iterations.....................: 1418    125.314964/s
      ![image](https://github.com/user-attachments/assets/09bae263-9275-478e-b760-888ed100da03)
 
-When duration is 1s and just increasing users
+When duration is 1s and just increasing concurrent calls
 Up to 400 looping VUs for 1s over 1 stages (gracefulRampDown: 30s, gracefulStop: 30s)
 running (02.8s), 000/400 VUs, 399 complete and 0 interrupted iterations
 ![image](https://github.com/user-attachments/assets/62a5dbef-539e-4f47-975e-d9237d87cda8)
-MAX RPS is around 150/s 
+
 
 So it can only handle around this much of concurrent vus like 460 something until the requests start getting timed out .
 Again the database is bottleneck ,like response null errors would occur indicating that api waiting for connection but no available connections found .
 
 Few Possible Solutions -- 
 1) Increase connection pool size,max overflow size (beyond pool size connections)
-
+2) Database optimisation(Already optimised)
+3) Horizintal scaling(load balancers as in add more instances of application)
+  
 
 
 
