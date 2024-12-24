@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        { duration: '1s', target: 400 }, 
+        { duration: '1s', target: 100 }, 
         // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
@@ -38,6 +38,7 @@ export let options = {
 const BASE_URL= 'http://127.0.0.1:8000' ;
 const TEST_URL= "https://example.com" ;
 
+
 export default function(){
 
     // post endpoint test
@@ -65,6 +66,6 @@ export default function(){
     //     "redirection is correct" : (getres) =>getres.headers['Location']===TEST_URL
     // });
 
-    // sleep(1);
+    sleep(1);
 
 }

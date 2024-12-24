@@ -34,8 +34,7 @@ async_session=async_sessionmaker(bind=engine,class_=AsyncSession,expire_on_commi
 async def get_session() -> AsyncGenerator[AsyncSession,None]:
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
         yield session
-    # await engine.dispose()  # 1) it was used earlier when the scope of asyncio event loop was not fixed explicitly to function scope
-    # 2) so the event loop was somehow closed in the start .
+    # await engine.dispose()  
 
 
 # Verbose explaination of how it will be used via dep.
@@ -43,6 +42,5 @@ async def get_session() -> AsyncGenerator[AsyncSession,None]:
 # session = await session_generator.__anext__()  async session instance 
 # Use the session for database operations
 
-       
           
         
