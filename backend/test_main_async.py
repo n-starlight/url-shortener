@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 input_url="https://example.com"
 
-# @pytest.mark.anyio
+@pytest.mark.anyio
 async def test_endpoints():
     # async with LifespanManager(app):
          async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
