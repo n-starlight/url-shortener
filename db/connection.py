@@ -23,7 +23,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 #     exit(1)
 
 try:
-    engine = create_async_engine(DATABASE_URL)
+    engine = create_async_engine(DATABASE_URL,future=True,echo=True)
 except Exception as e:
     print(f"Error connecting to the database: {e}")
     exit(1)
