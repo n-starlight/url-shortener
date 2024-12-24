@@ -6,6 +6,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from typing import AsyncGenerator
+from sqlalchemy.pool import NullPool
 
 
 load_dotenv()
@@ -19,7 +20,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 #Create async database engine
 try:
-    engine = create_async_engine(DATABASE_URL,future=True, echo=True)
+    engine = create_async_engine(DATABASE_URL,future=True, echo=True,poolclass=NullPool)
 except Exception as e:
     print(f"Error connecting to the database: {e}")
     exit(1)
@@ -33,8 +34,8 @@ async_session=async_sessionmaker(bind=engine,class_=AsyncSession,expire_on_commi
 #Scope of this will be to a specific route for a single specific request ,new session for each concurrent request when passed as dependency and using proper context scope.
 async def get_session() -> AsyncGenerator[AsyncSession,None]:
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
-        yield session
-    # await engine.dispose()  
+           yield session
+    
 
 
 # Verbose explaination of how it will be used via dep.
