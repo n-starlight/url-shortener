@@ -19,7 +19,6 @@ class LongUrl(BaseModel):
 
 DOMAIN="https://heystarlette/"
 
-API_URL="http://127.0.0.1:8000/"
 
  
 # @app.get("/")

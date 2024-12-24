@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
 from typing import Union
-from sqlalchemy import select
+from sqlalchemy import select,delete
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
@@ -23,7 +23,7 @@ class LongUrl(BaseModel):
 
 DOMAIN="https://heystarlette/"
 
-API_URL="http://127.0.0.1:8000/"
+
 
  
 # @app.get("/")
@@ -72,7 +72,7 @@ async def save_url(session,original_url:str,short_code:str):
         return new_url
     except IntegrityError:
         await session.rollback()
-        # return new_url   can return directly without below checks if there was no hash collision issue with  different users different payloads , hash code not already existing in db 
+        # return new_url   #can return directly without below checks if there was no hash collision issue with  different users different payloads , hash code not already existing in db 
         code_exists=await check_code_exists(session,short_code)
         code_exists_url=code_exists.original_url if code_exists else None
         code_exists_scode=code_exists.short_code if code_exists else None
@@ -153,6 +153,22 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
     return RedirectResponse(url=url.original_url,status_code=307)
     # response = {"original_url": url}
     # return response
+
+async def del_scode(session,short_code):
+    await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
+    await session.commit()
+    
+
+
+@app.delete("/shorten/{short_code}")
+async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_session)):
+    code_exists=await check_code_exists(db_session,short_code) 
+
+    if code_exists:
+        await del_scode(db_session,short_code)
+        return {"message": f"{short_code} short code has been deleted"}
+    else:
+        raise HTTPException(status_code=404,detail="Not a valid short code")
 
 
 # Handling of race conditions --
