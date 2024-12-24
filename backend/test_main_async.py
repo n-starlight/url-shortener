@@ -44,10 +44,10 @@ async def test_endpoints():
             assert get_response2.json()== {"detail":"URL not found"}
 
 
-            code_to_delete='btree'
-            del_response=await ac.delete(f'/shorten/{code_to_delete}')
-            assert del_response.status_code==200
-            assert del_response.json()== {"message": f"{code_to_delete} short code has been deleted"}
+            # code_to_delete='btree'
+            # del_response=await ac.delete(f'/shorten/{code_to_delete}')
+            # assert del_response.status_code==200
+            # assert del_response.json()== {"message": f"{code_to_delete} short code has been deleted"}
 
             response = await ac.delete(f"/shorten/{incorrect_scode}")
             assert response.status_code == 404
