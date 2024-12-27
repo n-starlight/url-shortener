@@ -2,20 +2,18 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
-from typing import Union
+from typing import Union,AsyncGenerator
 from sqlalchemy import select,delete
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
-
-from db.conn_session import get_session
+from db.conn_session import create_app
 from db.schema import URL_SHORTENER
 
 load_dotenv()
 
-
-app = FastAPI()
+app = create_app()
 
 class LongUrl(BaseModel):
     url_link:str
@@ -23,7 +21,16 @@ class LongUrl(BaseModel):
 
 DOMAIN="https://heystarlette/"
 
+#Scope of this will be to a specific route for a single specific request ,new session for each concurrent request when passed as dependency and using proper context scope.
+async def get_session() -> AsyncGenerator[AsyncSession,None]:
+    async_session=app.state.async_session
+    async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
+        yield session
 
+# Verbose explaination of how it will be used via dep.
+# session_generator = get_session()
+# session = await session_generator.__anext__()  async session instance 
+# Use the session for database operations
 
  
 # @app.get("/")

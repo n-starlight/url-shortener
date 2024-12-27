@@ -1,9 +1,11 @@
 from sqlalchemy import create_engine, text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine,AsyncEngine
 from sqlalchemy.exc import SQLAlchemyError
 import os
 import logging
 from dotenv import load_dotenv
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
 
 load_dotenv()
 
@@ -23,7 +25,7 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 #     exit(1)
 
 try:
-    engine = create_async_engine(DATABASE_URL,future=True,echo=True)
+    engine = AsyncEngine(create_engine(DATABASE_URL,future=True,echo=True))
 except Exception as e:
     print(f"Error connecting to the database: {e}")
     exit(1)
@@ -49,6 +51,7 @@ except Exception as e:
         # although after transaction end it will wait for .execute if any are there until the scope ends and then finally close.
 
 # Dependency for database connection
+
 async def get_db_connection():
     async with engine.connect() as conn:
         yield conn
