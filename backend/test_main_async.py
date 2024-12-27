@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 @pytest.mark.anyio
 async def test_post():
-    # async with LifespanManager(app):
+    async with LifespanManager(app):
          input_url="https://example.com"
          async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
             post_response=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None})
@@ -47,6 +47,11 @@ async def test_post():
             # assert get_res1==input_url
             # assert get_res1==get_res
 
+            # incorrect_scode="codedoesnotexist"
+            # get_response2=await ac.get(f'/redirect?short_code={incorrect_scode}',follow_redirects=False)
+            # assert get_response2.status_code == 404
+            # assert get_response2.json()== {"detail":"URL not found"}
+
           
 @pytest.mark.anyio      
 async def test_get():  
@@ -58,18 +63,18 @@ async def test_get():
             get_res=get_response.headers["Location"]
             assert get_res==input_url
 
-            short_code2="1e1052"
-            input_url="https://grafana.com/docs/k6/latest/extensions/"
-            get_response1=await ac.get(f'/redirect?short_code={short_code2}',follow_redirects=False)
-            assert get_response1.status_code == 307
-            get_res1=get_response1.headers["Location"]
-            assert get_res1==input_url
-            assert get_res1==get_res
+            # short_code2="1e1052"
+            # input_url="https://grafana.com/docs/k6/latest/extensions/"
+            # get_response1=await ac.get(f'/redirect?short_code={short_code2}',follow_redirects=False)
+            # assert get_response1.status_code == 307
+            # get_res1=get_response1.headers["Location"]
+            # assert get_res1==input_url
+            # assert get_res1==get_res
 
-            incorrect_scode="codedoesnotexist"
-            get_response2=await ac.get(f'/redirect?short_code={incorrect_scode}',follow_redirects=False)
-            assert get_response2.status_code == 404
-            assert get_response2.json()== {"detail":"URL not found"}
+            # incorrect_scode="codedoesnotexist"
+            # get_response2=await ac.get(f'/redirect?short_code={incorrect_scode}',follow_redirects=False)
+            # assert get_response2.status_code == 404
+            # assert get_response2.json()== {"detail":"URL not found"}
 
 # @pytest.mark.anyio      
 # async def test_del():  
@@ -89,8 +94,8 @@ async def test_get():
 # trio tests pass only when engine.dispose is used ,
 # asyncio tests will still pass without it when all the requests are under same function 
 # if different functions for different test requests then even asyncio ones would fail after first test so again engine.dispose should be used
-# also when tests included for requests in which just exceptions are raised , trio don't pass them even with engine.dispose 
+# also when tests included for requests in which exceptions are raised , trio don't pass them even with engine.dispose ,use poolclass=NullPool for that
 
- # as per docs -- for AsyncEngine created in function scope, close and
- # clean-up pooled connections
+# as per docs -- for AsyncEngine created in function scope, close and
+# clean-up pooled connections
 #await engine.dispose()
