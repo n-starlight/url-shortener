@@ -15,6 +15,17 @@
 4) To run the server cd to the folder contaning main.py
    > fastapi dev main.py
 
+Latency graphs 
+1) Post requests for already existing url
+2) Post requests with new url (for first set of concurrent requests)
+   
+![image](https://github.com/user-attachments/assets/995f48df-81bc-4ba2-8be8-82069b327217)
+
+![image](https://github.com/user-attachments/assets/a498ace9-6845-4707-a98e-711e7b306a30)
+
+
+Let's now observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
+
 
 For post request 10vus for a duration of 10s
 ![image](https://github.com/user-attachments/assets/0ea84548-d565-4a3a-89bf-e13d358f6abf)
@@ -107,16 +118,7 @@ Few Possible Solutions --
 2) Database optimisation(Already optimised)
 3) Horizintal scaling(load balancers as in add more instances of application)
 
-Latency graphs 
-1) Post requests for already existing url
-2) Post requests with new url (for first set of concurrent requests)
-   
-![image](https://github.com/user-attachments/assets/995f48df-81bc-4ba2-8be8-82069b327217)
 
-![image](https://github.com/user-attachments/assets/a498ace9-6845-4707-a98e-711e7b306a30)
-
-
-Let's now observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
 
   
 
