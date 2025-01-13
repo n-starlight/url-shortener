@@ -16,9 +16,11 @@
 4) To run the server cd to the folder contaning main.py
    > fastapi dev main.py
 
-To run the tests file cd to the folder containing loadtest.js in command prompt followed by ->
+To run the loadtest file for checking latency percentiles and also checking success rate of requests - cd to the folder containing loadtest.js in command prompt followed by ->
 
 > K6 run loadtest.js
+
+> Run tests using pytest
 
 Latency graphs
 
