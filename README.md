@@ -1,8 +1,8 @@
 1. Virtual Environment Creation
    We don't want our project dependencies to conflict with general system level dependencies, so let's just build a virtual environment and not contaminate the system environment.
-   a python3 -m venv venv (venv python module , virtual environment name)
-   b .\venv\Scripts\Activate
-   c pip freeze > requirements.txt (to track the installed dependecies into a file requirements with correct versions,so easy to reinstall at once if and when needed later)
+   > python3 -m venv venv (venv python module , virtual environment name)
+   > .\venv\Scripts\Activate
+   > pip freeze > requirements.txt (to track the installed dependecies into a file requirements with correct versions,so easy to reinstall at once if and when needed later)
 
    Will use browser as HTTP client or POSTMAN for making http requests requests to server
 
