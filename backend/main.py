@@ -27,6 +27,7 @@ async def get_session() -> AsyncGenerator[AsyncSession,None]:
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
         yield session
 
+
 # Verbose explaination of how it will be used via dep.
 # session_generator = get_session()
 # session = await session_generator.__anext__()  async session instance 
