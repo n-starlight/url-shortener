@@ -6,12 +6,10 @@ from typing import Union
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
-from contextlib import asynccontextmanager
-
-from db.connection import get_db_connection
+from db.connection import create_app
 
 
-app = FastAPI()
+app = create_app()
 
 class LongUrl(BaseModel):
     url_link:str
@@ -19,8 +17,11 @@ class LongUrl(BaseModel):
 
 DOMAIN="https://heystarlette/"
 
+async def get_db_connection():
+    async_engine=app.state.engine
+    async with async_engine.connect() as conn:
+        yield conn
 
- 
 # @app.get("/")
 # def read_root():
 #     return {"Url shortener active"}
