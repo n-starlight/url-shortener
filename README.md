@@ -1,13 +1,20 @@
-Latency graphs 
-1) Post requests for already existing url
-2) Post requests with new url (for first set of concurrent requests)
-   
-![image](https://github.com/user-attachments/assets/995f48df-81bc-4ba2-8be8-82069b327217)
+1. Virtual Environment Creation
+   We don't want our project dependencies to conflict with general system level dependencies, so let's just build a virtual environment and not contaminate the system environment.
+   a python3 -m venv venv (venv python module , virtual environment name)
+   b .\venv\Scripts\Activate
+   c pip freeze > requirements.txt (to track the installed dependecies into a file requirements with correct versions,so easy to reinstall at once if and when needed later)
 
-![image](https://github.com/user-attachments/assets/a498ace9-6845-4707-a98e-711e7b306a30)
+   Will use browser as HTTP client or POSTMAN for making http requests requests to server
 
+2) > pip install fastapi
+   > pip install "fastapi[standard]"
 
-Let's now observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
+3) > define path operations/api endpoints/routes to communicate with server via client using aavialable HTTP methods
+   > define path handler functions
+
+4) To run the server cd to the folder contaning main.py
+   > fastapi dev main.py
+
 
 For post request 10vus for a duration of 10s
 ![image](https://github.com/user-attachments/assets/0ea84548-d565-4a3a-89bf-e13d358f6abf)
@@ -99,6 +106,17 @@ Few Possible Solutions --
 1) Increase connection pool size,max overflow size (beyond pool size connections)
 2) Database optimisation(Already optimised)
 3) Horizintal scaling(load balancers as in add more instances of application)
+
+Latency graphs 
+1) Post requests for already existing url
+2) Post requests with new url (for first set of concurrent requests)
+   
+![image](https://github.com/user-attachments/assets/995f48df-81bc-4ba2-8be8-82069b327217)
+
+![image](https://github.com/user-attachments/assets/a498ace9-6845-4707-a98e-711e7b306a30)
+
+
+Let's now observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
 
   
 
