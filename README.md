@@ -37,7 +37,9 @@ ValueError: too many file descriptors in select() - Error when requests start ge
 3. Post requests for same url
 ![image](https://github.com/user-attachments/assets/78bee7df-bb9e-421f-bfdc-2cf336eddef1)
 > Now the break point is 1700 concurrent requests.
-> 
+> If we increase workers it can handle more concurrent requests (it's like 450 requests per worker)
+
+>Even for new request per concurrent user it can handle 1000 concurrent requests as verified using 4 workers(though p values are higher tah nwhen requests are old)
 
 Let's now also observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
 
