@@ -22,6 +22,13 @@ To run the loadtest file for checking latency percentiles and also checking succ
 
 > Run tests using pytest
 
+Folder structure can be improved further.
+
+Let's observe latency values for api request and response duration from client to server and back to client-->
+Code for observing latency values --
+https://colab.research.google.com/drive/1qpJnlJ28MZ34DUYDRO8fA0iuxbsHFFxX?usp=sharing
+
+
 Latency graphs
 
 1. Post requests for already existing url
