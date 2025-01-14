@@ -22,6 +22,13 @@ To run the loadtest file for checking latency percentiles and also checking succ
 
 > Run tests using pytest
 
+Folder structure can be improved further.
+
+Let's observe latency values for api request and response duration from client to server and back to client-->
+Code for observing latency values --
+https://colab.research.google.com/drive/1qpJnlJ28MZ34DUYDRO8fA0iuxbsHFFxX?usp=sharing
+
+
 Latency graphs
 
 1. Post requests for already existing url
@@ -127,6 +134,7 @@ running (02.8s), 000/400 VUs, 399 complete and 0 interrupted iterations
 
 So it can only handle around this much of concurrent vus like 460 something until the requests start getting timed out .
 Again the database is bottleneck ,like response null errors would occur indicating that api waiting for connection but no available connections found .
+Increasing uvicorn workers helped with this (so more concurrent requests can be processed with failures)
 
 Few Possible Solutions --
 
