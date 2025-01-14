@@ -92,6 +92,8 @@ async def test_del():
 
    
 
+# it was fixed later,both tests are passed properly
+
 # trio tests pass only when engine.dispose is used ,
 # asyncio tests will still pass without it when all the requests are under same function 
 # if different functions for different test requests then even asyncio ones would fail after first test so again engine.dispose should be used
