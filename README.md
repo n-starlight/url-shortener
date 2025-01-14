@@ -127,6 +127,7 @@ running (02.8s), 000/400 VUs, 399 complete and 0 interrupted iterations
 
 So it can only handle around this much of concurrent vus like 460 something until the requests start getting timed out .
 Again the database is bottleneck ,like response null errors would occur indicating that api waiting for connection but no available connections found .
+Increasing uvicorn workers helped with this (so more concurrent requests can be processed with failures)
 
 Few Possible Solutions --
 
