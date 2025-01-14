@@ -16,9 +16,11 @@
 4) To run the server cd to the folder contaning main.py
    > fastapi dev main.py
 
-To run the tests file cd to the folder containing loadtest.js in command prompt followed by ->
+To run the loadtest file for checking latency percentiles and also checking success rate of requests - cd to the folder containing loadtest.js in command prompt followed by ->
 
 > K6 run loadtest.js
+
+> Run tests using pytest
 
 Latency graphs
 
@@ -29,7 +31,17 @@ Latency graphs
 
 ![image](https://github.com/user-attachments/assets/a498ace9-6845-4707-a98e-711e7b306a30)
 
-Let's now observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
+ValueError: too many file descriptors in select() - Error when requests start getting timed out
+> Uvicorn runs a single process by default which cannot handle more than a certain limit of file descriptors at once. Let's increase workers to handle more concurrent requests
+> uvicorn backend.main_no_orm:app --host 127.0.0.1 --port 8000 --workers 4
+3. Post requests for same url
+![image](https://github.com/user-attachments/assets/78bee7df-bb9e-421f-bfdc-2cf336eddef1)
+> Now the break point is 1700 concurrent requests.
+> If we increase workers it can handle more concurrent requests (it's like 450 requests per worker)
+
+>Even for new request per concurrent user it can handle 1000 concurrent requests as verified using 4 workers(though p values are higher tah nwhen requests are old)
+
+Let's now also observe latency values at various thresholds from which the above latency graphs have been obtained to identify any bottlenecks ,overall performance ,average performance in terms of time duration of request processing and success rate of requests!
 
 For post request 10vus for a duration of 10s
 ![image](https://github.com/user-attachments/assets/0ea84548-d565-4a3a-89bf-e13d358f6abf)
