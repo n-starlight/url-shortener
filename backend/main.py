@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
 from db.conn_session import create_app
 from db.schema import URL_SHORTENER
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -122,13 +123,26 @@ async def get_url(short_code,session):
 #     response={"short_url":f"{DOMAIN}{newinsert[2]}"}
 #     return response
 
+def is_valid_url(url: str):
+    """
+    Validate the URL format and check if it's secure.
+    """
+    parsed = urlparse(url)
+    # Check for valid scheme and netloc
+    return parsed.scheme in ["http", "https"] and bool(parsed.netloc)
+
 @app.post("/shorten")
 async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_session)): 
+    if not is_valid_url(payload.url_link):
+        raise HTTPException(
+            status_code=400, detail="Invalid or insecure URL format.")
    
     hash_code=hashlib.md5(payload.url_link.encode()).hexdigest()[:6]
     code_exists=await check_code_exists(db_session,hash_code)
     code_exists_url=code_exists.original_url if code_exists else None
     code_exists_scode=code_exists.short_code if code_exists else None
+
+    
     
     if code_exists_scode:
         if code_exists_url==payload.url_link:

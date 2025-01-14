@@ -65,7 +65,7 @@ async def save_url(conn,original_url:str,short_code:str):
     result=await conn.execute(query,{"original_url": original_url, "short_code": short_code})
     try:
        await conn.commit() # necessary to commit explicitly as when post called again (new transaction) it won't be able to see changes
-       print("result",result)
+    #    print("result",result)
        fetchresult=result.fetchone()
        print("resultfetch",fetchresult)
        return fetchresult 
@@ -152,6 +152,8 @@ async def redirect_url(short_code:str,db_conn=Depends(get_db_connection)):
     return RedirectResponse(url=url,status_code=307)
     # response = {"original_url": url}
     # return response
+
+
 
  
     

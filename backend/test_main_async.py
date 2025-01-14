@@ -1,6 +1,6 @@
 
-from .main_no_orm import app
-# from .main import app
+# from .main_no_orm import app
+from .main import app
 import pytest
 from httpx import ASGITransport, AsyncClient
 from asgi_lifespan import LifespanManager
@@ -76,18 +76,19 @@ async def test_get():
             assert get_response2.status_code == 404
             assert get_response2.json()== {"detail":"URL not found"}
 
-# @pytest.mark.anyio      
-# async def test_del():  
-#        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+@pytest.mark.anyio      
+async def test_del():
+       async with LifespanManager(app):  
+           async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
 #             code_to_delete='8bcc71'
 #             del_response=await ac.delete(f'/shorten/{code_to_delete}')
 #             assert del_response.status_code==200
 #             assert del_response.json()== {"message": f"{code_to_delete} short code has been deleted"}
 
-          #   incorrect_scode="incorrect_code"
-          #   response = await ac.delete(f"/shorten/{incorrect_scode}")
-          #   assert response.status_code == 404
-          #   assert response.json()=={"detail":"Not a valid short code"}
+                incorrect_scode="incorrect_code"
+                response = await ac.delete(f"/shorten/{incorrect_scode}")
+                assert response.status_code == 404
+                assert response.json()=={"detail":"Not a valid short code"}
 
    
 

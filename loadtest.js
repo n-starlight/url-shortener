@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        { duration: '60s', target: 500 }, 
+        { duration: '10s', target: 1000 }, 
         // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
@@ -36,30 +36,32 @@ export let options = {
 // };
 
 const BASE_URL= 'http://127.0.0.1:8000' ;
-// const TEST_URL= "https://example.com" ;
-const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
+const TEST_URLL= "https://example.com" ;
+// const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
 
-const TEST_URLS= [
-    "https://codefellows.github.io/sea-f2-python-sept14/session03.html#mutability",
-    "https://example.com/2",
-    "https://example.com/3",
-    "https://example.com/4",
-    "https://example.com/5",
-    "https://example.com/6",
-    "https://fastapi.tiangolo.com/advanced/async-tests/#run-it",
-    "https://codefellows.github.io/sea-f2-python-sept14/session08.html",
-    "https://codefellows.github.io/sea-f2-python-sept14/session02.html",
-    "https://codefellows.github.io/sea-f2-python-sept14/session02.html#review-questions",
-    "https://codefellows.github.io/sea-f2-python-sept14/session03.html"
-]
+// const TEST_URLS= [
+//     "https://codefellows.github.io/sea-f2-python-sept14/session03.html#mutability",
+//     "https://example.com/2",
+//     "https://example.com/3",
+//     "https://example.com/4",
+//     "https://example.com/5",
+//     "https://example.com/6",
+//     "https://fastapi.tiangolo.com/advanced/async-tests/#run-it",
+//     "https://codefellows.github.io/sea-f2-python-sept14/session08.html",
+//     "https://codefellows.github.io/sea-f2-python-sept14/session02.html",
+//     "https://codefellows.github.io/sea-f2-python-sept14/session02.html#review-questions",
+//     "https://codefellows.github.io/sea-f2-python-sept14/session03.html"
+// ]
 
 
 export default function(){
 
     // post endpoint test
 
-    const randomIndex = Math.floor(Math.random() * TEST_URLS.length);
-    const TEST_URL = TEST_URLS[randomIndex];
+    // const randomIndex = Math.floor(Math.random() * TEST_URLS.length);
+    // const TEST_URL = TEST_URLS[randomIndex];
+    const uniqueId = __VU; // `__VU` is the unique ID of the current virtual user
+    const TEST_URL = `${TEST_URLL}/${uniqueId}`; 
 
     let postPayload = JSON.stringify({url_link:TEST_URL}) //Javacript value to JSON string
     let postHeaders = {'Content-Type':'application/json'} ;
