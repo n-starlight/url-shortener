@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# DATABASE_URL format : "postgresql://user:password@localhost/URL_SHORTENER"
+# DATABASE_URL format : "postgresql+asyncpg://user:password@localhost/URL_SHORTENER"
 
 
 
