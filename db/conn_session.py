@@ -3,7 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager 
 
 
 load_dotenv()
@@ -38,6 +38,7 @@ def create_app() -> FastAPI:
     app= FastAPI(lifespan=app_lifespan)
     return app
 
+#redeploy
 
 
 
