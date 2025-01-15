@@ -141,3 +141,9 @@ Few Possible Solutions --
 1. Increase connection pool size,max overflow size (beyond pool size connections)
 2. Database optimisation(Already optimised)
 3. Horizintal scaling(load balancers as in add more instances of application)
+
+Deploy API on Render 
+> Create a procfile
+> Create api ( New -> Web service -> connect to repo -> specify details -> fill in env variables ( use the internal database url obtained after creating a connection ,add + asyncpg)
+> Connect db by creating a new database connection(New -> PostgreSQL -> specify details -> select same region as API service so connection will be faster)
+
