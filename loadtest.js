@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        { duration: '10s', target: 1000 }, 
+        { duration: '10s', target: 100 }, 
         // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
@@ -35,9 +35,10 @@ export let options = {
 //     summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(50)', 'p(90)', 'p(95)', 'p(99)'], 
 // };
 
-const BASE_URL= 'http://127.0.0.1:8000' ;
+// const BASE_URL= 'http://127.0.0.1:8000' ;
+const BASE_URL = 'https://url-shortener-api-sekf.onrender.com'
 const TEST_URLL= "https://example.com" ;
-// const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
+const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
 
 // const TEST_URLS= [
 //     "https://codefellows.github.io/sea-f2-python-sept14/session03.html#mutability",
@@ -60,8 +61,8 @@ export default function(){
 
     // const randomIndex = Math.floor(Math.random() * TEST_URLS.length);
     // const TEST_URL = TEST_URLS[randomIndex];
-    const uniqueId = __VU; // `__VU` is the unique ID of the current virtual user
-    const TEST_URL = `${TEST_URLL}/${uniqueId}`; 
+    // const uniqueId = __VU; // `__VU` is the unique ID of the current virtual user
+    // const TEST_URL = `${TEST_URLL}/${uniqueId}`; 
 
     let postPayload = JSON.stringify({url_link:TEST_URL}) //Javacript value to JSON string
     let postHeaders = {'Content-Type':'application/json'} ;
