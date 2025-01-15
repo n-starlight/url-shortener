@@ -27,7 +27,9 @@ async def app_lifespan(app:FastAPI):
      #resource initialisation , attach to app state to make it globally avbl and to use it later
      app.state.engine=async_engine
      app.state.async_session=async_session
-
+     
+     #Not required for running app locally(as schema with data is already created on device) 
+     #ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
      async with async_engine.begin() as conn:
           await conn.run_sync(Base.metadata.create_all)
      
