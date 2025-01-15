@@ -4,6 +4,7 @@ import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from contextlib import asynccontextmanager 
+from db.schema import Base
 
 
 load_dotenv()
@@ -16,7 +17,6 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # DATABASE_URL format : "postgresql+asyncpg://user:password@localhost/URL_SHORTENER"
 
 
-
 @asynccontextmanager
 async def app_lifespan(app:FastAPI):
      #Create async database engine
@@ -27,6 +27,9 @@ async def app_lifespan(app:FastAPI):
      #resource initialisation , attach to app state to make it globally avbl and to use it later
      app.state.engine=async_engine
      app.state.async_session=async_session
+
+     async with async_engine.begin() as conn:
+          await conn.run_sync(Base.metadata.create_all)
      
      yield
      
