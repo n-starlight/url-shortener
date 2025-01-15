@@ -3,7 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager 
 
 
 load_dotenv()
