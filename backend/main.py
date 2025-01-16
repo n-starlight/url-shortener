@@ -2,8 +2,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
+from datetime import datetime
 from typing import Union,AsyncGenerator
-from sqlalchemy import select,delete
+from sqlalchemy import select,delete,func,update
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import  AsyncSession
 from db.conn_session import create_app
 from db.schema import URL_SHORTENER
 from urllib.parse import urlparse
+import socket
 
 load_dotenv()
 
@@ -99,7 +101,7 @@ async def save_url(session,original_url:str,short_code:str):
 async def get_url(short_code,session):
    
         result = await session.execute(
-           select(URL_SHORTENER.original_url).where(URL_SHORTENER.short_code==short_code)
+           select(URL_SHORTENER.original_url,URL_SHORTENER.id).where(URL_SHORTENER.short_code==short_code)
         )
         fetchresult=result.first()
         return fetchresult if fetchresult else None
@@ -125,11 +127,24 @@ async def get_url(short_code,session):
 
 def is_valid_url(url: str):
     """
-    Validate the URL format and check if it's secure.
+    Validate the URL format and check if it's secure and resolved to a valid domain.
     """
     parsed = urlparse(url)
-    # Check for valid scheme and netloc
-    return parsed.scheme in ["http", "https"] and bool(parsed.netloc)
+    # "scheme://netloc/path;parameters?query#fragment"
+
+    try:
+        # Check for valid scheme and netloc
+        if parsed.scheme not in ["http", "https"] or not bool(parsed.netloc):
+            return False
+        hostname = parsed.netloc.split(":")[0]
+
+        #check if hostname resolves to an ip address (i.e. domain exists)
+        hostip=socket.gethostbyname(hostname)
+
+        return hostip and True
+    
+    except (ValueError,socket.gaierror) :
+        return False
 
 @app.post("/shorten")
 async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_session)): 
@@ -168,13 +183,25 @@ async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_sessio
 @app.get("/redirect")
 async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_session)):
     url= await get_url(short_code,db_session)
+    print(url)
 
     if not url:
        raise HTTPException(status_code=404, detail="URL not found")
+    
+    await db_session.execute(
+        update(URL_SHORTENER)
+        .where(URL_SHORTENER.id == url.id)
+        .values(
+            visit_cnt=URL_SHORTENER.visit_cnt + 1,
+            last_accessed_at=datetime.now()
+        )
+    )
+    await db_session.commit()
     print("url",url)
     return RedirectResponse(url=url.original_url,status_code=307)
     # response = {"original_url": url}
     # return response
+
 
 async def del_scode(session,short_code):
     await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
@@ -191,7 +218,29 @@ async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_sessio
         return {"message": f"{short_code} short code has been deleted"}
     else:
         raise HTTPException(status_code=404,detail="Not a valid short code")
+    
 
+async def get_real_time_analytics(session,limit,offset):
+    result=await session.execute(
+           select(URL_SHORTENER).order_by(URL_SHORTENER.created_at.desc()).limit(limit)
+        )
+    # statement2=select(func.count(URL_SHORTENER.short_code).label("total_urls"))
+    # result2=await session.execute(statement2)
+    # print(result2.fetchone()) #(10001057,)
+    scalars=result.scalars()
+    result=scalars.all()
+    print("scalars result" , scalars) # <sqlalchemy.engine.result.ScalarResult object at 0x000001CDAE829680>
+    print("result all",result) #[<db.schema.URL_SHORTENER object at 0x000001CDAEE30C10>, <db.schema.URL_SHORTENER object at 0x000001CDAEA072D0>, ...
+    return result
+
+# query parameters can be passed if expected to return more than 10 latest urls, also query parameters are optional to specify
+@app.get("/analytics/real-time")
+async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limit:int=10, offset:int=0):
+    data = await get_real_time_analytics(db_session,limit,offset)
+    if not data:
+        raise HTTPException(status_code=404, detail="Error in getting real time analytics")
+    # return [row.to_dict() for row in data]
+    return data
 
 # Handling of race conditions --
 #A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 

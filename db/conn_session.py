@@ -30,8 +30,8 @@ async def app_lifespan(app:FastAPI):
      
      #Not required for running app locally(as schema with data is already created on device) 
      #ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
-     async with async_engine.begin() as conn:
-          await conn.run_sync(Base.metadata.create_all)
+     # async with async_engine.begin() as conn:
+     #      await conn.run_sync(Base.metadata.create_all)
      
      yield
      
