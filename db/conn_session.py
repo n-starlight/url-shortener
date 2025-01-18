@@ -32,6 +32,8 @@ async def app_lifespan(app:FastAPI):
      #ORM only maps schema to python objects , so create the schema(tables) for deploying the api 
      # async with async_engine.begin() as conn:
      #      await conn.run_sync(Base.metadata.create_all)
+
+          
      
      yield
      

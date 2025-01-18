@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Header
 from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
@@ -10,7 +10,7 @@ from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
 from db.conn_session import create_app
-from db.schema import URL_SHORTENER
+from db.schema import URL_SHORTENER,Users
 from urllib.parse import urlparse
 import socket
 import string,random
@@ -75,8 +75,8 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
 
-async def save_url(session,original_url:str,short_code:str):
-    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code)
+async def save_url(session,userid,original_url:str,short_code:str):
+    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid)
     session.add(new_url)
     try:
         await session.commit()
@@ -179,14 +179,24 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
     
+async def get_id_of_api_key(api_key,session):
+    stmt=select(Users.id).where(Users.api_key==api_key)
+    result=await session.execute(stmt)
+    return result.first()
     
 
 @app.post("/shorten")
-async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_session)): 
+async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)): 
     if not is_valid_url(payload.url_link):
         raise HTTPException(
             status_code=400, detail="Invalid or insecure URL format.")
-   
+    
+    get_user_id_reqst=await get_id_of_api_key(api_key,db_session)
+    if not get_user_id_reqst:
+        raise HTTPException(status_code=403,detail="Not a valid api key")
+    
+    user_id_reqst=get_user_id_reqst.id
+
     hash_code=hash_code_with_entropy(payload.url_link)
     code_exists=await check_code_exists(db_session,hash_code)
     code_exists_scode=code_exists.short_code if code_exists else None
@@ -194,13 +204,13 @@ async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_sessio
     
     if code_exists_scode:
         short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
-        newinsert= await save_url(db_session,original_url=payload.url_link,short_code=short_code)
+        newinsert= await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code)
         print('newinsert',newinsert)
         response={"short_url":f"{newinsert.short_code}"}
             
     else:
         short_code=hash_code
-        newinsert=await save_url(db_session,original_url=payload.url_link,short_code=short_code)
+        newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code)
         print('newinsert',newinsert)
         response={"short_url":f"{newinsert.short_code}"}
     
@@ -238,18 +248,33 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
 async def del_scode(session,short_code):
     await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
     await session.commit()
+
+async def user_owns_code(apikey,scode,session):
+    stmt1=select(URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==scode)
+    stmt2=select(Users.id).where(Users.api_key==apikey)
+
+    result1=await session.execute(stmt1)
+    result1=result1.first() if result1 else None
+    result2=await session.execute(stmt2) 
+    result2=result2.first() if result2 else None
+
+    return (result1,result2)
+
     
-
-
 @app.delete("/shorten/{short_code}")
-async def remove_scode(short_code:str,db_session:AsyncSession=Depends(get_session)):
-    code_exists=await check_code_exists(db_session,short_code) 
-
-    if code_exists:
-        await del_scode(db_session,short_code)
-        return {"message": f"{short_code} short code has been deleted"}
+async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
+    result1,result2=await user_owns_code(api_key,short_code,db_session) 
+    
+    if result1 :
+        if result2 :
+            if result1.user_id==result2.id:
+                await del_scode(db_session,short_code)
+                return {"message": f"{short_code} short code has been deleted"}
+            return False
+        else:
+            raise HTTPException(status_code=403,detail="Not a valid api key")
     else:
-        raise HTTPException(status_code=404,detail="Not a valid short code")
+        raise HTTPException(status_code=404,detail='Not a valid short code')
     
 
 async def get_real_time_analytics(session,limit,offset):
