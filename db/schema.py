@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from sqlalchemy.orm import  declarative_base
-from sqlalchemy import Column , Integer , String , TIMESTAMP 
+from sqlalchemy import Column , Integer , String , TIMESTAMP ,ForeignKey
 from datetime import datetime
 
 #Base class for ORM models
@@ -11,13 +11,14 @@ class URL_SHORTENER(Base):
     id=Column(Integer,primary_key=True,autoincrement=True)
     original_url=Column(String,nullable=False)
     short_code=Column(String,nullable=False,unique=True)
-    created_at = Column(TIMESTAMP, default=datetime.now)
+    created_at = Column(TIMESTAMP, default=datetime.now())
     visit_cnt = Column(Integer,default=0,nullable=False)
     last_accessed_at=Column(TIMESTAMP,nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
 
     # def to_dict(self):
     #     """
-    #     method of class url_shortener to ensure response is serialised to json is not done already
+    #     method of class url_shortener to ensure response is serialised to json if not done already
     #     """
    
     #     return {
@@ -27,6 +28,13 @@ class URL_SHORTENER(Base):
     #         "created_at":self.created_at
     #     }
 
+class User(Base):
+    __tablename__="users"
+    id=Column(Integer,primary_key=True,autoincrement=True)
+    email=Column(String,nullable=False,unique=True)
+    name=Column(String,nullable=True)
+    api_key=Column(String,nullable=False,unique=True)
+    created_at=Column(TIMESTAMP,default=datetime.now())
 
 
 

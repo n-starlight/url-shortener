@@ -13,6 +13,7 @@ from db.conn_session import create_app
 from db.schema import URL_SHORTENER
 from urllib.parse import urlparse
 import socket
+import string,random
 
 load_dotenv()
 
@@ -145,6 +146,40 @@ def is_valid_url(url: str):
     
     except (ValueError,socket.gaierror) :
         return False
+    
+def random_code(min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    chars=string.ascii_letters + string.digits
+    return "".join(random.choices(chars,k=2))
+
+
+def hash_code_with_entropy(url,min_length=5,max_length=8):
+    #Hash the url with the time entropy for randomness for same url 
+    full_hash_rand=hashlib.sha256(f"{url}{datetime.now()}".encode()).hexdigest()
+    length=random.randint(min_length,max_length)
+    short_hash=full_hash_rand[:length+1]
+    return short_hash
+
+
+async def retry_ifnot_unq(short_code:str,url,session):
+    
+    max_attempts = 5
+    attempts = 0
+    while True:
+        hash_code_new = hash_code_with_entropy(url)+random_code()
+        code_exists=await check_code_exists(session,hash_code_new) 
+        code_exists_scode=code_exists.URL_SHORTENER.short_code if code_exists else None 
+        if not code_exists_scode:
+            break
+        attempts+=1
+
+        if attempts>=max_attempts:
+            raise HTTPException(status_code=500,detail='couldn''t generate unique code')
+        
+    short_code=hash_code_new
+    return short_code
+    
+    
 
 @app.post("/shorten")
 async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_session)): 
@@ -152,22 +187,16 @@ async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_sessio
         raise HTTPException(
             status_code=400, detail="Invalid or insecure URL format.")
    
-    hash_code=hashlib.md5(payload.url_link.encode()).hexdigest()[:6]
+    hash_code=hash_code_with_entropy(payload.url_link)
     code_exists=await check_code_exists(db_session,hash_code)
-    code_exists_url=code_exists.original_url if code_exists else None
     code_exists_scode=code_exists.short_code if code_exists else None
 
     
-    
     if code_exists_scode:
-        if code_exists_url==payload.url_link:
-            short_code=hash_code
-            response={"short_url":f"{short_code}"}
-        else:
-            short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
-            newinsert= await save_url(db_session,original_url=payload.url_link,short_code=short_code)
-            print('newinsert',newinsert)
-            response={"short_url":f"{newinsert.short_code}"}
+        short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
+        newinsert= await save_url(db_session,original_url=payload.url_link,short_code=short_code)
+        print('newinsert',newinsert)
+        response={"short_url":f"{newinsert.short_code}"}
             
     else:
         short_code=hash_code
@@ -182,12 +211,25 @@ async def shorten_url(payload:LongUrl,db_session:AsyncSession=Depends(get_sessio
 
 @app.get("/redirect")
 async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_session)):
-    url= await get_url(short_code,db_session)
-    print(url)
+    stmt=(
+        update(URL_SHORTENER)
+        .where(URL_SHORTENER.short_code == short_code)
+        .values(
+            last_accessed_at=datetime.now(),
+            visit_cnt=(URL_SHORTENER.visit_cnt + 1)
+        )
+        .returning(URL_SHORTENER.original_url,URL_SHORTENER.visit_cnt)
+    )
 
-    if not url:
+    result=await db_session.execute(stmt)
+    url=result.first() if result else None
+    # print("vist_cnt",url.visit_cnt)
+
+    if url is None:
        raise HTTPException(status_code=404, detail="URL not found")
     
+    await db_session.commit()
+    print("url",url)
     return RedirectResponse(url=url.original_url,status_code=307)
     # response = {"original_url": url}
     # return response

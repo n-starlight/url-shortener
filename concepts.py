@@ -16,5 +16,7 @@ print(Bacteria.grow) #<function Bacteria.grow at 0x00000221242C9080>
 bacObj=Bacteria("Spiralli")
 print(bacObj.grow("nutrients")) #Spiralli is growing with nutrients
 print(bacObj.grow) #<bound method Bacteria.grow of <__main__.Bacteria object at 0x00000221242D5210>> # this method is bound to bacteria class instance
-# from datetime import datetime
-# print(datetime.now())
+from datetime import datetime
+print(datetime.now)
+import time
+print(time.time())
