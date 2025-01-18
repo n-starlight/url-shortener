@@ -16,6 +16,7 @@ class URL_SHORTENER(Base):
     visit_cnt = Column(Integer,default=0,nullable=False)
     last_accessed_at=Column(TIMESTAMP,nullable=True)
     user_id = Column(Integer, ForeignKey("userss.id"),nullable=True)
+    deleted_at=Column(TIMESTAMP,nullable=True)
 
     user = relationship("Users", back_populates="urls")
 

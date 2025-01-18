@@ -58,6 +58,6 @@ async def test_del():
               assert response_invalid_scode.status_code == 404
               assert response_invalid_scode.json()=={"detail":"Not a valid short code"}
               
-            #   del_response=await ac.delete(f'/shorten/2974eb',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
-            #   assert del_response.status_code==200
-            #   assert del_response.json()== {"message": f"2974eb short code has been deleted"}
+              del_response=await ac.delete(f'/shorten/68a4d434',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+              assert del_response.status_code==200
+              assert del_response.json()== {"message": f"68a4d434 short code has been deleted"}

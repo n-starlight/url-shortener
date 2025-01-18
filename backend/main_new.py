@@ -246,8 +246,18 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
 
 
 async def del_scode(session,short_code):
-    await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
+    # await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))
+    stmt=(
+        update(URL_SHORTENER)
+        .where(URL_SHORTENER.short_code==short_code)
+        .values(deleted_at=datetime.now())
+        .returning(URL_SHORTENER.deleted_at)
+    )
+    result=await session.execute(stmt)
+    result=result.first()
+    print("deleted result",result)
     await session.commit()
+    return result
 
 async def user_owns_code(apikey,scode,session):
     stmt1=select(URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==scode)
