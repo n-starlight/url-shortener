@@ -17,12 +17,12 @@ async def test_post():
     async with LifespanManager(app):
          input_url="https://docs.sqlalchemy.org/en/20/core/constraints.html"
          async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            post_response=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
+            post_response=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
             assert post_response.status_code == 200 
             post_res=post_response.json()
             assert post_res is not None
 
-            response_invalid_userkey=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz"})
+            response_invalid_userkey=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz"})
             assert response_invalid_userkey.status_code == 403
             assert response_invalid_userkey.json()=={"detail":"Not a valid api key"}
     
@@ -42,6 +42,12 @@ async def test_get():
             get_response2=await ac.get(f'/redirect?short_code={incorrect_scode}',follow_redirects=False)
             assert get_response2.status_code == 404
             assert get_response2.json()== {"detail":"URL not found"}
+
+            expired_code="e8b00d2e6"
+            expired_code_res=await ac.get(f'/redirect?short_code={expired_code}',follow_redirects=False)
+            assert expired_code_res.status_code==410
+            assert expired_code_res.json()=={"detail":"Code already expired"}
+
 
 @pytest.mark.anyio      
 async def test_del():

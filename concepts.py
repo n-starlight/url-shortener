@@ -20,3 +20,4 @@ from datetime import datetime
 print(datetime.now)
 import time
 print(time.time())
+print(datetime.now().date())

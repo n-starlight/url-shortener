@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
 from datetime import datetime
-from typing import Union,AsyncGenerator
+from typing import Union,Optional,AsyncGenerator
 from sqlalchemy import select,delete,func,update
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
@@ -22,6 +22,9 @@ app = create_app()
 class LongUrl(BaseModel):
     url_link:str
     custom_slug:Union[str, None] = None
+    exp_date:Union[str,None]= None
+
+    
 
 DOMAIN="https://heystarlette/"
 
@@ -30,12 +33,6 @@ async def get_session() -> AsyncGenerator[AsyncSession,None]:
     async_session=app.state.async_session
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
         yield session
-
-
-# Verbose explaination of how it will be used via dep.
-# session_generator = get_session()
-# session = await session_generator.__anext__()  async session instance 
-# Use the session for database operations
 
  
 # @app.get("/")
@@ -75,8 +72,9 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
 
-async def save_url(session,userid,original_url:str,short_code:str):
-    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid)
+async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optional[datetime]=None):  
+   
+    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date)
     session.add(new_url)
     try:
         await session.commit()
@@ -183,6 +181,13 @@ async def get_id_of_api_key(api_key,session):
     stmt=select(Users.id).where(Users.api_key==api_key)
     result=await session.execute(stmt)
     return result.first()
+
+def check_is_date_valid(date):
+        try:
+            return datetime.fromisoformat(date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD ")
+
     
 
 @app.post("/shorten")
@@ -191,26 +196,31 @@ async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session:AsyncSe
         raise HTTPException(
             status_code=400, detail="Invalid or insecure URL format.")
     
+    valid_date=None
+    if payload.exp_date:
+        valid_date=check_is_date_valid(payload.exp_date)
+    
     get_user_id_reqst=await get_id_of_api_key(api_key,db_session)
     if not get_user_id_reqst:
         raise HTTPException(status_code=403,detail="Not a valid api key")
     
     user_id_reqst=get_user_id_reqst.id
 
+
     hash_code=hash_code_with_entropy(payload.url_link)
     code_exists=await check_code_exists(db_session,hash_code)
     code_exists_scode=code_exists.short_code if code_exists else None
-
-    
+    print("date") 
+    print(payload.exp_date)
     if code_exists_scode:
         short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
-        newinsert= await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code)
+        newinsert= await save_url(db_session,user_id_reqst,payload.exp_date,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
         print('newinsert',newinsert)
         response={"short_url":f"{newinsert.short_code}"}
             
     else:
         short_code=hash_code
-        newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code)
+        newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
         print('newinsert',newinsert)
         response={"short_url":f"{newinsert.short_code}"}
     
@@ -228,15 +238,17 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
             last_accessed_at=datetime.now(),
             visit_cnt=(URL_SHORTENER.visit_cnt + 1)
         )
-        .returning(URL_SHORTENER.original_url,URL_SHORTENER.visit_cnt)
+        .returning(URL_SHORTENER.original_url,URL_SHORTENER.expiry_date)
     )
 
     result=await db_session.execute(stmt)
     url=result.first() if result else None
-    # print("vist_cnt",url.visit_cnt)
 
     if url is None:
        raise HTTPException(status_code=404, detail="URL not found")
+    
+    if url.expiry_date and url.expiry_date< datetime.now().date():
+       raise HTTPException(status_code=410,detail="Code already expired")
     
     await db_session.commit()
     print("url",url)

@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from sqlalchemy.orm import  declarative_base, relationship
-from sqlalchemy import Column , Integer , String , TIMESTAMP ,ForeignKey
+from sqlalchemy import Column , Integer , String , TIMESTAMP ,ForeignKey ,DATE
 from datetime import datetime
 
 #Base class for ORM models(mapped classes)
@@ -12,13 +12,19 @@ class URL_SHORTENER(Base):
     id=Column(Integer,primary_key=True,autoincrement=True)
     original_url=Column(String,nullable=False)
     short_code=Column(String,nullable=False,unique=True)
-    created_at = Column(TIMESTAMP, default=datetime.now())
+    created_at = Column(TIMESTAMP, default=datetime.now)
     visit_cnt = Column(Integer,default=0,nullable=False)
     last_accessed_at=Column(TIMESTAMP,nullable=True)
     user_id = Column(Integer, ForeignKey("userss.id"),nullable=True)
     deleted_at=Column(TIMESTAMP,nullable=True)
+    expiry_date=Column(DATE,nullable=True)
 
     user = relationship("Users", back_populates="urls")
+
+    def __repr__(self)->str:
+        return f"""URL_SHORTENER(id : {self.id},original_url:{self.original_url},short_code:{self.short_code},
+        visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
+        user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
 
     def to_dict(self):
         """
@@ -38,7 +44,12 @@ class Users(Base):
     email=Column(String(40),nullable=False,unique=True)
     name=Column(String(20),nullable=True)
     api_key=Column(String(100),nullable=False,unique=True)
-    created_at=Column(TIMESTAMP,default=datetime.now())
+    created_at=Column(TIMESTAMP,default=datetime.now)
+
+    def __repr__(self)->str:
+        return f"Users(id : {self.id},email:{self.email},name:{self.name},api_key:{self.api_key},created_at:{self.created_at})"
+           
+        
 
     urls=relationship("URL_SHORTENER",back_populates="user")
 

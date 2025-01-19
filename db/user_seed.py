@@ -1,7 +1,7 @@
 import secrets,asyncio,os
 from backend.main_new import app
 from fastapi import HTTPException,Depends
-from schema import Users
+from schema import Users,URL_SHORTENER
 from sqlalchemy.ext.asyncio import async_sessionmaker,create_async_engine,AsyncSession
 # from conn_session import create_app
 from dotenv import load_dotenv
@@ -61,13 +61,15 @@ async def get_users():
     async with async_session() as session:
        stmt=select(Users)
        result=await session.execute(stmt)
-    return result
+    return result.scalars().first()
     
 
 async def main():
     async with app.router.lifespan_context(app):
-        result=await sample_users()
-        print("sample users:",result)
+        # result=await sample_users()
+        # print("sample users:",result)
+        result=await get_users()
+        print("get users: ",result)
 
 if __name__ == "__main__":
     asyncio.run(main())
