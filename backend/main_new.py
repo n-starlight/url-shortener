@@ -3,17 +3,18 @@ from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
 from datetime import datetime
-from typing import Union,Optional,AsyncGenerator
+from typing import Union,Optional,List,AsyncGenerator
 from sqlalchemy import select,delete,func,update
 from sqlalchemy.exc import IntegrityError
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
+from sqlalchemy.orm import sessionmaker
 from db.conn_session import create_app
 from db.schema import URL_SHORTENER,Users
 from urllib.parse import urlparse
 import socket
-import string,random
+import string,random,asyncio
 
 load_dotenv()
 
@@ -23,6 +24,9 @@ class LongUrl(BaseModel):
     url_link:str
     custom_slug:Union[str, None] = None
     exp_date:Union[str,None]= None
+
+class BatchUrls(BaseModel):
+    batch:List[LongUrl]
 
     
 
@@ -34,12 +38,13 @@ async def get_session() -> AsyncGenerator[AsyncSession,None]:
     async with async_session() as session:  # using with context manager opens the session on first execute and closes the async session (sesion) instance at the end of with block
         yield session
 
- 
-# @app.get("/")
-# def read_root():
-#     return {"Url shortener active"}
+async def get_session_factory():
+    async_session=app.state.async_session
+    yield async_session
+
 
 async def check_code_exists(session,short_code:str):
+    print('entered',short_code)
     result = await session.execute(
        select(URL_SHORTENER.original_url,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==short_code)
     )
@@ -48,7 +53,7 @@ async def check_code_exists(session,short_code:str):
     # print("first",result.first())
     # print("all",result.all())
     # print("curr",result.first())
-    return result.first()
+    return result.first() if result else None
 
 
 async def retry_ifnot_unq(short_code:str,url,session):
@@ -72,7 +77,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
 
-async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optional[datetime]=None):  
+async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optional[datetime]=None,custom_slug:Optional[str]=None):  
    
     new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date)
     session.add(new_url)
@@ -190,43 +195,122 @@ def check_is_date_valid(date):
 
     
 
-@app.post("/shorten")
-async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)): 
-    if not is_valid_url(payload.url_link):
-        raise HTTPException(
-            status_code=400, detail="Invalid or insecure URL format.")
-    
-    valid_date=None
-    if payload.exp_date:
-        valid_date=check_is_date_valid(payload.exp_date)
-    
-    get_user_id_reqst=await get_id_of_api_key(api_key,db_session)
-    if not get_user_id_reqst:
-        raise HTTPException(status_code=403,detail="Not a valid api key")
-    
-    user_id_reqst=get_user_id_reqst.id
 
+# async def shorten_url(payload:LongUrl,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)): 
+#     if not is_valid_url(payload.url_link):
+#         raise HTTPException(
+#             status_code=400, detail="Invalid or insecure URL format")
+    
+#     valid_date=None
+#     if payload.exp_date:
+#         valid_date=check_is_date_valid(payload.exp_date)
+    
+#     get_user_id_reqst=await get_id_of_api_key(api_key,db_session)
+#     if not get_user_id_reqst:
+#         raise HTTPException(status_code=403,detail="Not a valid api key")
+    
+#     user_id_reqst=get_user_id_reqst.id
 
-    hash_code=hash_code_with_entropy(payload.url_link)
-    code_exists=await check_code_exists(db_session,hash_code)
-    code_exists_scode=code_exists.short_code if code_exists else None
-    print("date") 
-    print(payload.exp_date)
-    if code_exists_scode:
-        short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
-        newinsert= await save_url(db_session,user_id_reqst,payload.exp_date,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
-        print('newinsert',newinsert)
-        response={"short_url":f"{newinsert.short_code}"}
+#     if payload.custom_slug:
+#         slug_code=payload.custom_slug
+#         code_exists=await check_code_exists(db_session,slug_code)
+#         if code_exists:
+#             raise HTTPException(status_code=409,detail="Code already exits, Retry")
+#         short_code=slug_code
+#         newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+#         print('newinsert',newinsert)
+#         response={"short_url":f"{newinsert.short_code}"}
+#     else:
+#         hash_code=hash_code_with_entropy(payload.url_link)
+#         code_exists=await check_code_exists(db_session,hash_code)
+#         code_exists_scode=code_exists.short_code if code_exists else None
+#         if code_exists_scode:
+#             short_code=await retry_ifnot_unq(hash_code,payload.url_link,db_session)
+#             newinsert= await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+#             print('newinsert',newinsert)
+#             response={"short_url":f"{newinsert.short_code}"}
             
+#         else:
+#             short_code=hash_code
+#             newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+#             print('newinsert',newinsert)
+#             response={"short_url":f"{newinsert.short_code}"}
+
+#     return response
+
+async def process_url(payload,session,get_user_id_reqst):
+            try:
+
+                if not is_valid_url(payload.url_link):
+                    raise HTTPException(
+                    status_code=400, detail="Invalid or insecure URL format")
+            
+                valid_date=None
+                if payload.exp_date:
+                    valid_date=check_is_date_valid(payload.exp_date)
+                
+                user_id_reqst=get_user_id_reqst.id
+
+                if payload.custom_slug:
+                    slug_code=payload.custom_slug
+                    code_exists=await check_code_exists(session,slug_code)
+                    if code_exists:
+                        raise HTTPException(status_code=409,detail="Code already exits, Retry")
+                    short_code=slug_code
+                    newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                    print('newinsert',newinsert)
+                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error":None}
+                else:
+                    hash_code=hash_code_with_entropy(payload.url_link)
+                    code_exists=await check_code_exists(session,hash_code)
+                    code_exists_scode=code_exists.short_code if code_exists else None
+                    if code_exists_scode:
+                        short_code=await retry_ifnot_unq(hash_code,payload.url_link,session)
+                        newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                        print('newinsert',newinsert)
+                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error":None}
+                        
+                    else:
+                        short_code=hash_code
+                        newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                        print('newinsert',newinsert)
+                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error_code":None}
+                
+                return response
+
+            except Exception as e:
+                 return {"url":payload.url_link,"short_code":None,"error_code":e.status_code,"error_detail":e.detail}
+            
+
+async def check_api_key(api_key,sessionfactory):
+    async with sessionfactory() as session:
+        get_user_id_reqst=await get_id_of_api_key(api_key,session)
+        if not get_user_id_reqst:
+            raise HTTPException(status_code=403,detail="Not a valid api key")
+        return get_user_id_reqst
+
+@app.post("/shorten")
+async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session:sessionmaker=Depends(get_session_factory)): 
+    get_user_id_reqst=await check_api_key(api_key,db_session)
+
+    if isinstance(payload,LongUrl):
+        async with db_session() as session:
+            resp=await process_url(payload,session,get_user_id_reqst) 
+        return resp
+    elif isinstance(payload,list):
+        async with db_session() as session:
+            results=await asyncio.gather(*[process_url(payload_item,session,get_user_id_reqst) for payload_item in payload])
+
+        successes=[result for result in results if result["error_code"] is None]
+        failures=[result for result in results if result["error_code"] is not None]
+
+        return {"successes": successes, "failures": failures}
     else:
-        short_code=hash_code
-        newinsert=await save_url(db_session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
-        print('newinsert',newinsert)
-        response={"short_url":f"{newinsert.short_code}"}
+        raise HTTPException(status_code=422, detail="Unprocessable entity,invalid input format")
     
-    return response
-
-
+# @app.post("/shorten/batch")
+# async def shorten_urls(payload:List[LongUrl],api_key:str=Header(...),db_session:sessionmaker=Depends(get_session_factory)):
+#     pass
 
 
 @app.get("/redirect")

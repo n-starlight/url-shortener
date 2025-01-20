@@ -17,14 +17,36 @@ async def test_post():
     async with LifespanManager(app):
          input_url="https://docs.sqlalchemy.org/en/20/core/constraints.html"
          async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-            post_response=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
-            assert post_response.status_code == 200 
-            post_res=post_response.json()
-            assert post_res is not None
 
-            response_invalid_userkey=await ac.post('/shorten',json={"url_link":input_url,"custome_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz"})
-            assert response_invalid_userkey.status_code == 403
-            assert response_invalid_userkey.json()=={"detail":"Not a valid api key"}
+            post_response=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
+            assert post_response.status_code == 200 
+            assert post_response.json() is not None
+
+            response_invalid_userkey=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz"})
+            assert response_invalid_userkey.json()["error_code"] == 403
+            assert response_invalid_userkey.json()["error_detail"]=="Not a valid api key"
+
+            response_invalid_url=await ac.post('/shorten',json={"url_link":"","custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
+            assert response_invalid_url.json()["error_code"] == 400
+            assert response_invalid_url.json()["error_detail"]=="Invalid or insecure URL format"
+
+            correct_form_exp=await ac.post('/shorten',json={"url_link":input_url,"exp_date":"2025-02-01"},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
+            assert correct_form_exp.status_code == 200 
+            assert correct_form_exp.json() is not None
+
+            # custome_slug_unq=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":"sqlcotre"},headers={"api-key":"NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs"})
+            # assert custome_slug_unq.status_code == 200 
+            # assert custome_slug_unq.json() is not None
+
+            custome_slug_nonunq=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":"sqalconsre"},headers={"api-key":"NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs"})
+            assert custome_slug_nonunq.json()["error_code"]== 409 
+            assert custome_slug_nonunq.json()["error_detail"] =="Code already exits, Retry"
+
+            body_as_list=await ac.post('/shorten',json=[{"url_link":input_url,"custom_slug":None,"exp_date":None},{"url_link":input_url,"custom_slug":"sqalconsre","exp_date":None}],
+                          headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
+            assert body_as_list.status_code == 200 
+            assert body_as_list.json()["successes"] is not None
+            assert body_as_list.json()["failures"] is not None
     
 
           
