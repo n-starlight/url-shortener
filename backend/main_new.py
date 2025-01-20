@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import  AsyncSession
 from sqlalchemy.orm import sessionmaker
 from db.conn_session import create_app
-from db.schema import URL_SHORTENER,Users
+from db.schema import URL_SHORTENER,Users,TierLevel
 from urllib.parse import urlparse
 import socket
 import string,random,asyncio
@@ -183,7 +183,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
     return short_code
     
 async def get_id_of_api_key(api_key,session):
-    stmt=select(Users.id).where(Users.api_key==api_key)
+    stmt=select(Users.id,Users.tier_level).where(Users.api_key==api_key)
     result=await session.execute(stmt)
     return result.first()
 
@@ -285,19 +285,20 @@ async def process_url(payload,session,get_user_id_reqst):
 async def check_api_key(api_key,sessionfactory):
     async with sessionfactory() as session:
         get_user_id_reqst=await get_id_of_api_key(api_key,session)
-        if not get_user_id_reqst:
+        get_user_id_reqst_id=get_user_id_reqst.id if get_user_id_reqst else None
+        if not get_user_id_reqst_id:
             raise HTTPException(status_code=403,detail="Not a valid api key")
         return get_user_id_reqst
 
 @app.post("/shorten")
 async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session:sessionmaker=Depends(get_session_factory)): 
     get_user_id_reqst=await check_api_key(api_key,db_session)
-
+   
     if isinstance(payload,LongUrl):
         async with db_session() as session:
             resp=await process_url(payload,session,get_user_id_reqst) 
         return resp
-    elif isinstance(payload,list):
+    elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.ENTERPRISE:
         async with db_session() as session:
             results=await asyncio.gather(*[process_url(payload_item,session,get_user_id_reqst) for payload_item in payload])
 
@@ -305,6 +306,8 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
         failures=[result for result in results if result["error_code"] is not None]
 
         return {"successes": successes, "failures": failures}
+    elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.HOBBY:
+        raise HTTPException(status_code=400, detail="Invalid request for Hobby tier without pricing")
     else:
         raise HTTPException(status_code=422, detail="Unprocessable entity,invalid input format")
     

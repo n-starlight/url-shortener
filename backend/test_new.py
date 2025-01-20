@@ -23,8 +23,8 @@ async def test_post():
             assert post_response.json() is not None
 
             response_invalid_userkey=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz"})
-            assert response_invalid_userkey.json()["error_code"] == 403
-            assert response_invalid_userkey.json()["error_detail"]=="Not a valid api key"
+            assert response_invalid_userkey.status_code == 403
+            assert response_invalid_userkey.json()=={"detail":"Not a valid api key"}
 
             response_invalid_url=await ac.post('/shorten',json={"url_link":"","custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
             assert response_invalid_url.json()["error_code"] == 400
@@ -42,11 +42,16 @@ async def test_post():
             assert custome_slug_nonunq.json()["error_code"]== 409 
             assert custome_slug_nonunq.json()["error_detail"] =="Code already exits, Retry"
 
-            body_as_list=await ac.post('/shorten',json=[{"url_link":input_url,"custom_slug":None,"exp_date":None},{"url_link":input_url,"custom_slug":"sqalconsre","exp_date":None}],
+            enterprise_user=await ac.post('/shorten',json=[{"url_link":input_url,"custom_slug":None,"exp_date":None},{"url_link":input_url,"custom_slug":"sqalconsre","exp_date":None}],
                           headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
-            assert body_as_list.status_code == 200 
-            assert body_as_list.json()["successes"] is not None
-            assert body_as_list.json()["failures"] is not None
+            assert enterprise_user.status_code == 200 
+            assert enterprise_user.json()["successes"] is not None
+            assert enterprise_user.json()["failures"] is not None
+
+            hobby_user=await ac.post('/shorten',json=[{"url_link":input_url,"custom_slug":None,"exp_date":None},{"url_link":input_url,"custom_slug":"sqalconsre","exp_date":None}],
+                          headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+            assert hobby_user.status_code == 400
+            assert hobby_user.json()=={"detail":"Invalid request for Hobby tier without pricing"}
     
 
           

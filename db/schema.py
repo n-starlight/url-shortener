@@ -1,10 +1,15 @@
 from pydantic import BaseModel
 from sqlalchemy.orm import  declarative_base, relationship
-from sqlalchemy import Column , Integer , String , TIMESTAMP ,ForeignKey ,DATE
+from sqlalchemy import Column , Integer , String , TIMESTAMP ,ForeignKey ,DATE,Enum
 from datetime import datetime
+import enum
 
 #Base class for ORM models(mapped classes)
 Base=declarative_base()
+
+class TierLevel(enum.Enum):
+    HOBBY="hobby"
+    ENTERPRISE="enterprise"
 
 #ORM mapped classes -->
 class URL_SHORTENER(Base):
@@ -45,6 +50,7 @@ class Users(Base):
     name=Column(String(20),nullable=True)
     api_key=Column(String(100),nullable=False,unique=True)
     created_at=Column(TIMESTAMP,default=datetime.now)
+    tier_level=Column(Enum(TierLevel),default=TierLevel.HOBBY,nullable=False)
 
     def __repr__(self)->str:
         return f"Users(id : {self.id},email:{self.email},name:{self.name},api_key:{self.api_key},created_at:{self.created_at})"
