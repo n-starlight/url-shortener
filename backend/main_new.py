@@ -332,7 +332,7 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
 
 
 @app.get("/redirect")
-async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_session)):
+async def redirect_url(short_code:str,password:Optional[str]=None,db_session:AsyncSession=Depends(get_session)):
     stmt=(
         update(URL_SHORTENER)
         .where(URL_SHORTENER.short_code == short_code)
@@ -340,7 +340,7 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
             last_accessed_at=datetime.now(),
             visit_cnt=(URL_SHORTENER.visit_cnt + 1)
         )
-        .returning(URL_SHORTENER.original_url,URL_SHORTENER.expiry_date)
+        .returning(URL_SHORTENER.original_url,URL_SHORTENER.expiry_date,URL_SHORTENER.password)
     )
 
     result=await db_session.execute(stmt)
@@ -351,6 +351,10 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
+    
+    if url.password!=password:
+        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
+
     
     await db_session.commit()
     print("url",url)
