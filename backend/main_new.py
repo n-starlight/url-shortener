@@ -102,12 +102,13 @@ async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optio
         
     
 
-async def get_url(short_code,session):
+async def get_url(short_code:str,session:AsyncSession):
    
         result = await session.execute(
-           select(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code)
+           select(URL_SHORTENER.short_code,URL_SHORTENER.deleted_at,URL_SHORTENER.expiry_date).where(URL_SHORTENER.short_code==short_code)
         )
         fetchresult=result.first()
+        print(fetchresult)
         return fetchresult if fetchresult else None
 
     
@@ -189,7 +190,18 @@ async def get_id_of_api_key(api_key,session):
 
 def check_is_date_valid(date):
         try:
-            return datetime.fromisoformat(date)
+            date=date
+            print(date.date(),date.now().date(),datetime.now().date())
+            if isinstance(date,str):
+                date=datetime.fromisoformat(date)
+            
+            if isinstance(date,datetime):
+                date=date.date()
+            
+            if date>=datetime.now().date():
+                return date
+            else:
+                raise HTTPException(status_code=400,detail="Dates before today not allowed")
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid expiry date format. Use YYYY-MM-DD ")
 
@@ -343,6 +355,34 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
     # response = {"original_url": url}
     # return response
 
+@app.patch("/shorten/{short_code}")
+async def update_code(short_code:str,expiry_date:Optional[datetime],api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
+    get_user=await get_id_of_api_key(api_key,db_session)
+    get_user_id=get_user.id if get_user else None
+
+    if not get_user_id:
+        raise HTTPException(status_code=403,detail="Not a valid api key")
+
+    code_exists=await get_url(short_code,db_session)
+    if not code_exists.short_code:
+        raise HTTPException(status_code=404, detail="Short code not found")
+    
+    if code_exists.deleted_at is not None:
+        raise HTTPException(status_code=410,detail="Code already deleted")
+    valid_date=check_is_date_valid(expiry_date)
+    if valid_date:
+        stmt=(
+        update(URL_SHORTENER)
+        .where(URL_SHORTENER.short_code==short_code)
+        .values(expiry_date=expiry_date)
+        .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
+        )
+        result=await db_session.execute(stmt)
+        await db_session.commit()
+        res=result.first() if result else None
+    
+    return {"short_code":res.short_code,"expiry_date":res.expiry_date,"message":"updated short code!"}
+    
 
 async def del_scode(session,short_code):
     # await session.execute(delete(URL_SHORTENER).where(URL_SHORTENER.short_code==short_code))

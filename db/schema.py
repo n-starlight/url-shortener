@@ -27,9 +27,7 @@ class URL_SHORTENER(Base):
     user = relationship("Users", back_populates="urls")
 
     def __repr__(self)->str:
-        return f"""URL_SHORTENER(id : {self.id},original_url:{self.original_url},short_code:{self.short_code},
-        visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
-        user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
+        return f"URL_SHORTENER(id : {self.id},original_url:{self.original_url},short_code:{self.short_code},visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"
 
     def to_dict(self):
         """
