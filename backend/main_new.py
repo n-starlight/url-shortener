@@ -24,6 +24,7 @@ class LongUrl(BaseModel):
     url_link:str
     custom_slug:Union[str, None] = None
     exp_date:Union[str,None]= None
+    password:Union[str,None]=None
 
 class BatchUrls(BaseModel):
     batch:List[LongUrl]
@@ -77,9 +78,9 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
 
-async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optional[datetime]=None,custom_slug:Optional[str]=None):  
+async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optional[datetime]=None,password:Optional[str]=None):  
    
-    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date)
+    new_url=URL_SHORTENER(original_url=original_url,short_code=short_code,user_id=userid,expiry_date=exp_date,password=password)
     session.add(new_url)
     try:
         await session.commit()
@@ -252,7 +253,6 @@ def check_is_date_valid(date):
 
 async def process_url(payload,session,get_user_id_reqst):
             try:
-
                 if not is_valid_url(payload.url_link):
                     raise HTTPException(
                     status_code=400, detail="Invalid or insecure URL format")
@@ -269,24 +269,27 @@ async def process_url(payload,session,get_user_id_reqst):
                     if code_exists:
                         raise HTTPException(status_code=409,detail="Code already exits, Retry")
                     short_code=slug_code
-                    newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                    newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
+                                             short_code=short_code,exp_date=valid_date,password=payload.password)
                     print('newinsert',newinsert)
-                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error":None}
+                    response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
                 else:
                     hash_code=hash_code_with_entropy(payload.url_link)
                     code_exists=await check_code_exists(session,hash_code)
                     code_exists_scode=code_exists.short_code if code_exists else None
                     if code_exists_scode:
                         short_code=await retry_ifnot_unq(hash_code,payload.url_link,session)
-                        newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                        newinsert= await save_url(session,user_id_reqst,original_url=payload.url_link,
+                                                  short_code=short_code,exp_date=valid_date,password=payload.password)
                         print('newinsert',newinsert)
-                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error":None}
+                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
                         
                     else:
                         short_code=hash_code
-                        newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,short_code=short_code,exp_date=valid_date)
+                        newinsert=await save_url(session,user_id_reqst,original_url=payload.url_link,
+                                                 short_code=short_code,exp_date=valid_date,password=payload.password)
                         print('newinsert',newinsert)
-                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"error_code":None}
+                        response={"original_url":newinsert.original_url,"short_url":newinsert.short_code,"pass":newinsert.password,"error":None}
                 
                 return response
 
@@ -356,7 +359,7 @@ async def redirect_url(short_code:str,db_session:AsyncSession=Depends(get_sessio
     # return response
 
 @app.patch("/shorten/{short_code}")
-async def update_code(short_code:str,expiry_date:Optional[datetime],api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
+async def update_code(short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
     get_user=await get_id_of_api_key(api_key,db_session)
     get_user_id=get_user.id if get_user else None
 
@@ -370,18 +373,20 @@ async def update_code(short_code:str,expiry_date:Optional[datetime],api_key:str=
     if code_exists.deleted_at is not None:
         raise HTTPException(status_code=410,detail="Code already deleted")
     valid_date=check_is_date_valid(expiry_date)
+    # password=password if password else None
     if valid_date:
         stmt=(
         update(URL_SHORTENER)
         .where(URL_SHORTENER.short_code==short_code)
-        .values(expiry_date=expiry_date)
+        .values(expiry_date=expiry_date,
+                password=password)
         .returning(URL_SHORTENER.short_code,URL_SHORTENER.expiry_date)
         )
         result=await db_session.execute(stmt)
         await db_session.commit()
         res=result.first() if result else None
     
-    return {"short_code":res.short_code,"expiry_date":res.expiry_date,"message":"updated short code!"}
+    return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
     
 
 async def del_scode(session,short_code):
