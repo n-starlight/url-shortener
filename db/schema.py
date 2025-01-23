@@ -27,21 +27,27 @@ class URL_SHORTENER(Base):
 
     user = relationship("Users", back_populates="urls")
 
-    def __repr__(self)->str:
-        return f"""URL_SHORTENER(id : {self.id},original_url:{self.original_url},short_code:{self.short_code},
-        visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
-        user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
+    # def __repr__(self)->str:
+    #     return f"""URL_SHORTENER(id : {self.id},original_url:{self.original_url},short_code:{self.short_code},
+    #     visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
+    #     user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
 
     def to_dict(self):
         """
-        method of class url_shortener to ensure response is serialised to json if not done already
+        to ensure response is serialised to json if not done already
         """
    
         return {
             "id" : self.id,
             "original_url":self.original_url,
-            "short_url":self.short_code,
-            "created_at":self.created_at
+            "short_code":self.short_code,
+            "created_at":self.created_at,
+            "visit_cnt":self.visit_cnt,
+            "last_accessed_at":self.last_accessed_at,
+            "user_id":self.user_id,
+            "deleted_at":self.deleted_at,
+            "expiry_date":self.expiry_date,
+            "password":self.password
         }
 
 class Users(Base):

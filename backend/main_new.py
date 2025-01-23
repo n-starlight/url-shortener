@@ -49,12 +49,8 @@ async def check_code_exists(session,short_code:str):
     result = await session.execute(
        select(URL_SHORTENER.original_url,URL_SHORTENER.short_code).where(URL_SHORTENER.short_code==short_code)
     )
-    # new_res=result.scalars()
-    # print(result)
-    # print("first",result.first())
-    # print("all",result.all())
-    # print("curr",result.first())
-    return result.first() if result else None
+    res=result.first()
+    return res if res else None
 
 
 async def retry_ifnot_unq(short_code:str,url,session):
@@ -99,6 +95,9 @@ async def save_url(session,userid,original_url:str,short_code:str,exp_date:Optio
                short_code=await retry_ifnot_unq(short_code,original_url,session)
                newinsert= await save_url(session,original_url,short_code)
                return newinsert
+    except Exception as e:
+        await session.rollback()
+        raise e
         
         
     
@@ -184,7 +183,7 @@ async def retry_ifnot_unq(short_code:str,url,session):
     short_code=hash_code_new
     return short_code
     
-async def get_id_of_api_key(api_key,session):
+async def get_idntier_api_key(api_key,session):
     stmt=select(Users.id,Users.tier_level).where(Users.api_key==api_key)
     result=await session.execute(stmt)
     return result.first()
@@ -192,11 +191,11 @@ async def get_id_of_api_key(api_key,session):
 def check_is_date_valid(date):
         try:
             date=date
-            print(date.date(),date.now().date(),datetime.now().date())
-            if isinstance(date,str):
+            # print(date.date(),date.now().date(),datetime.now().date())
+            if isinstance(date,str):       # date from payload
                 date=datetime.fromisoformat(date)
             
-            if isinstance(date,datetime):
+            if isinstance(date,datetime):  # from query parameter of update request
                 date=date.date()
             
             if date>=datetime.now().date():
@@ -218,7 +217,7 @@ def check_is_date_valid(date):
 #     if payload.exp_date:
 #         valid_date=check_is_date_valid(payload.exp_date)
     
-#     get_user_id_reqst=await get_id_of_api_key(api_key,db_session)
+#     get_user_id_reqst=await get_idntier_api_key(api_key,db_session)
 #     if not get_user_id_reqst:
 #         raise HTTPException(status_code=403,detail="Not a valid api key")
     
@@ -294,31 +293,34 @@ async def process_url(payload,session,get_user_id_reqst):
                 return response
 
             except Exception as e:
-                 return {"url":payload.url_link,"short_code":None,"error_code":e.status_code,"error_detail":e.detail}
-            
+                 return {"url":payload.url_link,"short_code":None,"error":e}
+            # to catch the raised error for a particular url processing
 
 async def check_api_key(api_key,sessionfactory):
     async with sessionfactory() as session:
-        get_user_id_reqst=await get_id_of_api_key(api_key,session)
+        get_user_id_reqst=await get_idntier_api_key(api_key,session)
         get_user_id_reqst_id=get_user_id_reqst.id if get_user_id_reqst else None
         if not get_user_id_reqst_id:
             raise HTTPException(status_code=403,detail="Not a valid api key")
         return get_user_id_reqst
 
 @app.post("/shorten")
-async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session:sessionmaker=Depends(get_session_factory)): 
+async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(...),db_session=Depends(get_session_factory)): 
     get_user_id_reqst=await check_api_key(api_key,db_session)
    
     if isinstance(payload,LongUrl):
         async with db_session() as session:
             resp=await process_url(payload,session,get_user_id_reqst) 
-        return resp
+            if resp["error"]:
+                raise resp["error"]
+            return resp
+            
     elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.ENTERPRISE:
         async with db_session() as session:
             results=await asyncio.gather(*[process_url(payload_item,session,get_user_id_reqst) for payload_item in payload])
 
-        successes=[result for result in results if result["error_code"] is None]
-        failures=[result for result in results if result["error_code"] is not None]
+        successes=[result for result in results if result["error"] is None]
+        failures=[result for result in results if result["error"] is not None]
 
         return {"successes": successes, "failures": failures}
     elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.HOBBY:
@@ -346,15 +348,16 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
     result=await db_session.execute(stmt)
     url=result.first() if result else None
 
+    if url.password and url.password!=password:
+        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
+
+
     if url is None:
        raise HTTPException(status_code=404, detail="URL not found")
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
     
-    if url.password!=password:
-        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
-
     
     await db_session.commit()
     print("url",url)
@@ -364,20 +367,23 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
 
 @app.patch("/shorten/{short_code}")
 async def update_code(short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
-    get_user=await get_id_of_api_key(api_key,db_session)
+    get_user=await get_idntier_api_key(api_key,db_session)
     get_user_id=get_user.id if get_user else None
 
     if not get_user_id:
         raise HTTPException(status_code=403,detail="Not a valid api key")
 
-    code_exists=await get_url(short_code,db_session)
-    if not code_exists.short_code:
+    code_exists=await get_userid_scode(short_code,db_session)
+    if not code_exists:
         raise HTTPException(status_code=404, detail="Short code not found")
+    
+    if code_exists.user_id!=get_user_id:
+        raise HTTPException(status_code=403,detail="Cannot update ,code belongs to another user")
     
     if code_exists.deleted_at is not None:
         raise HTTPException(status_code=410,detail="Code already deleted")
     valid_date=check_is_date_valid(expiry_date)
-    # password=password if password else None
+ 
     if valid_date:
         stmt=(
         update(URL_SHORTENER)
@@ -391,6 +397,25 @@ async def update_code(short_code:str,expiry_date:Optional[datetime],password:Opt
         res=result.first() if result else None
     
     return {"short_code":res.short_code,"expiry_date":res.expiry_date,"password":password,"message":"updated short code!"}
+
+
+@app.get("/user/urls")
+async def get_all_urls_for_user(api_key:str=Header(...),db_session:AsyncSession=Depends(get_session),page:int=1,limit:int=10):
+    get_user=await get_idntier_api_key(api_key,db_session)
+    get_user_id=get_user.id if get_user else None
+
+
+    if not get_user_id:
+        raise HTTPException(status_code=403,detail="Not a valid api key")
+    
+    
+    stmt=select(URL_SHORTENER).where(URL_SHORTENER.user_id==get_user_id).limit(limit).offset((page-1)*limit)
+    all_urls_res=await db_session.execute(stmt)
+    # all_urls=all_urls_res.scalars().all()  # response already in required dict format 
+    all_urls=all_urls_res.scalars()   # for selecting all rows while using .scalars only it needs to serialised to proper format, fetchall gives objects list so define __repr__ method to change the result in required format
+    return {"user_id":get_user_id,"urls":[row.to_dict() for row in all_urls],"page":page,"urls_count":limit}
+
+    
     
 
 async def del_scode(session,short_code):
@@ -407,33 +432,45 @@ async def del_scode(session,short_code):
     await session.commit()
     return result
 
-async def user_owns_code(apikey,scode,session):
-    stmt1=select(URL_SHORTENER.user_id).where(URL_SHORTENER.short_code==scode)
-    stmt2=select(Users.id).where(Users.api_key==apikey)
+async def get_id_api_key(api_key,session):
+    stmt=select(Users.id).where(Users.api_key==api_key)
+    result=await session.execute(stmt)
+    return result.first() if result else None 
 
-    result1=await session.execute(stmt1)
-    result1=result1.first() if result1 else None
-    result2=await session.execute(stmt2) 
-    result2=result2.first() if result2 else None
+async def get_userid_scode(scode,session):
+    stmt=select(URL_SHORTENER.user_id,URL_SHORTENER.deleted_at).where(URL_SHORTENER.short_code==scode)
+    result=await session.execute(stmt)
+    print("scode res",result)
+    return result.first() if result else None # will return None in case when short code does not exist , (None,) if user id is null while only retrieving user_id
 
-    return (result1,result2)
 
-    
 @app.delete("/shorten/{short_code}")
 async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
-    result1,result2=await user_owns_code(api_key,short_code,db_session) 
+    """
+    A user cannot delete other user's codes but can delete codes where no user associated with them (for already existing rows)
+    """
+    api_key_id=await get_id_api_key(api_key,db_session)
+    scode_user_id=await get_userid_scode(short_code,db_session)
+
+    print("api_key_id",api_key_id)
+    print("scodeid",scode_user_id)
     
-    if result1 :
-        if result2 :
-            if result1.user_id==result2.id:
-                await del_scode(db_session,short_code)
-                return {"message": f"{short_code} short code has been deleted"}
-            return False
+    if scode_user_id :  # will be None in case of no short_code 
+        if api_key_id :
+            if scode_user_id.user_id==api_key_id.id:
+                if not scode_user_id.deleted_at:  
+                    await del_scode(db_session,short_code)
+                    return f"{short_code} short code has been deleted"
+                raise HTTPException(status_code=410,detail="Code already deleted")
+            elif scode_user_id.user_id is None:  # to allow for deletions for case where no user associated with earlier codes
+                return f"{short_code} short code has been deleted" 
+            raise HTTPException(status_code=403,detail="Cannot delete,Code does not belong to user")
         else:
-            raise HTTPException(status_code=403,detail="Not a valid api key")
+           raise HTTPException(status_code=403,detail="Not a valid api key")
     else:
         raise HTTPException(status_code=404,detail='Not a valid short code')
-    
+        
+            
 
 async def get_real_time_analytics(session,limit,offset):
     result=await session.execute(
@@ -448,7 +485,7 @@ async def get_real_time_analytics(session,limit,offset):
     print("result all",result) #[<db.schema.URL_SHORTENER object at 0x000001CDAEE30C10>, <db.schema.URL_SHORTENER object at 0x000001CDAEA072D0>, ...
     return result
 
-# query parameters can be passed if expected to return more than 10 latest urls, also query parameters are optional to specify
+
 @app.get("/analytics/real-time")
 async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limit:int=10, offset:int=0):
     data = await get_real_time_analytics(db_session,limit,offset)
@@ -461,8 +498,7 @@ async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limi
 #A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 
 # that the outcome depends on the timing or order of execution.
 # 1) Same payload at same time ( more than 1 user requests short code for same url at same time)
-# one requests succeeds , other requests will cause integrity error as short code should be unique, but as the database does not have user specificness
-#so return the same short code. 
+# one requests succeeds , other requests will cause integrity error as short code should be unique
 # 2) Different payload with same hash codes which don't already exist, added the integrity error checks to handle that .
 
 

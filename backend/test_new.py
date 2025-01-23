@@ -27,8 +27,8 @@ async def test_post():
             assert response_invalid_userkey.json()=={"detail":"Not a valid api key"}
 
             response_invalid_url=await ac.post('/shorten',json={"url_link":"","custom_slug":None,"exp_date":None},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
-            assert response_invalid_url.json()["error_code"] == 400
-            assert response_invalid_url.json()["error_detail"]=="Invalid or insecure URL format"
+            assert response_invalid_url.status_code == 400
+            assert response_invalid_url.json()=={"detail":"Invalid or insecure URL format"}
 
             correct_form_exp=await ac.post('/shorten',json={"url_link":input_url,"exp_date":"2025-02-01"},headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
             assert correct_form_exp.status_code == 200 
@@ -39,8 +39,8 @@ async def test_post():
             # assert custome_slug_unq.json() is not None
 
             custome_slug_nonunq=await ac.post('/shorten',json={"url_link":input_url,"custom_slug":"sqalconsre"},headers={"api-key":"NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs"})
-            assert custome_slug_nonunq.json()["error_code"]== 409 
-            assert custome_slug_nonunq.json()["error_detail"] =="Code already exits, Retry"
+            assert custome_slug_nonunq.status_code== 409 
+            assert custome_slug_nonunq.json() =={"detail":"Code already exits, Retry"}
 
             enterprise_user=await ac.post('/shorten',json=[{"url_link":input_url,"custom_slug":None,"exp_date":None},{"url_link":input_url,"custom_slug":"sqalconsre","exp_date":None}],
                           headers={"api-key":"hCxN5ak5h-5CkDN6bEz72WpM5n43MHioVlfcx_sa80E"})
@@ -91,6 +91,41 @@ async def test_del():
               assert response_invalid_scode.status_code == 404
               assert response_invalid_scode.json()=={"detail":"Not a valid short code"}
               
-              del_response=await ac.delete(f'/shorten/68a4d434',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
-              assert del_response.status_code==200
-              assert del_response.json()== {"message": f"68a4d434 short code has been deleted"}
+            #   code_to_del="68a4d434"
+            #   del_response=await ac.delete(f'/shorten/{code_to_del}',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+            #   assert del_response.status_code==200
+            #   assert del_response.json()== f"{code_to_del} short code has been deleted"
+
+              code_already_deleted=await ac.delete(f'/shorten/ecdd57',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+              assert code_already_deleted.status_code==410
+              assert code_already_deleted.json()=={"detail":"Code already deleted"}
+
+              code_different_user=await ac.delete(f'/shorten/ecdd57',headers={"api-key":"NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs"})
+              assert code_different_user.status_code==403
+              assert code_different_user.json()=={"detail":"Cannot delete,Code does not belong to user"}
+
+@pytest.mark.anyio      
+async def test_update():
+       async with LifespanManager(app):  
+           async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+              
+              invalid_key = await ac.patch(f"/shorten/sqalexp21?expiry_date=2025-01-28",headers={"api-key":"EcRGiU5nK8e90-"})
+              assert invalid_key.status_code == 403
+              assert invalid_key.json()=={"detail":"Not a valid api key"}
+
+              code_already_deleted=await ac.patch(f'/shorten/ecdd57?expiry_date=2025-01-28',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+              assert code_already_deleted.status_code==410
+              assert code_already_deleted.json()=={"detail":"Code already deleted"}
+
+              incorrect_scode="incorrect_code"
+              response_invalid_scode = await ac.patch(f"/shorten/{incorrect_scode}?expiry_date=2025-01-28",headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+              assert response_invalid_scode.status_code == 404
+              assert response_invalid_scode.json()=={"detail":"Short code not found"}
+
+              code_different_user=await ac.patch(f'/shorten/sqalexp21?expiry_date=2025-01-28',headers={"api-key":"NtI8xTE2_M9T8AistPV4I165QwwpN4th4SdEtfbITFs"})
+              assert code_different_user.status_code==403
+              assert code_different_user.json()=={"detail":"Cannot update ,code belongs to another user"}
+
+              correctres=await ac.patch(f'/shorten/sqalexp21?expiry_date=2025-01-28&password=wawww',headers={"api-key":"EcRGiU5nK8e90-eBMT2k-abcoEsZPYw9bTmcw_V6O8w"})
+              assert correctres.status_code==200
+              assert correctres.json()["message"]=="updated short code!"
