@@ -5,7 +5,7 @@ import {sleep,check} from 'k6';
 
 export let options = {
     stages: [
-        { duration: '10s', target: 100 }, 
+        { duration: '2s', target:5 }, 
         // { duration: '8m', target: 500 }, 
         // { duration: '20s', target: 60 }, 
         // { duration: '60s', target: 60},
@@ -38,8 +38,8 @@ export let options = {
 // const BASE_URL= 'http://127.0.0.1:8000' ;
 const BASE_URL = 'https://url-shortener-api-sekf.onrender.com'
 const TEST_URLL= "https://example.com" ;
-const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
-
+// const TEST_URL="https://fastapi.tiangolo.com/advanced/async-tests/#run-it";
+const TEST_URL="https://docs.sqlalchemy.org/en/20/core/constraints.html" ;
 // const TEST_URLS= [
 //     "https://codefellows.github.io/sea-f2-python-sept14/session03.html#mutability",
 //     "https://example.com/2",
