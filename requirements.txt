@@ -17,3 +17,6 @@ asyncio
 gunicorn
 
 alembic
+passlib
+pyjwt
+bcrypt

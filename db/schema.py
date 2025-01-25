@@ -8,8 +8,8 @@ import enum
 Base=declarative_base()
 
 class TierLevel(enum.Enum):
-    HOBBY="hobby"
-    ENTERPRISE="enterprise"
+    HOBBY='HOBBY'
+    ENTERPRISE='ENTERPRISE'
 
 #ORM mapped classes -->
 class URL_SHORTENER(Base):
@@ -56,13 +56,36 @@ class Users(Base):
     email=Column(String(40),nullable=False,unique=True)
     name=Column(String(20),nullable=True)
     api_key=Column(String(100),nullable=False,unique=True)
+    password_hash=Column(String(255),nullable=True)
+    user_inactive=Column(TIMESTAMP,nullable=True)
     created_at=Column(TIMESTAMP,default=datetime.now)
-    tier_level=Column(Enum(TierLevel),default=TierLevel.HOBBY,nullable=False)
+    updated_at=Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
+    tier_level=Column(Enum('HOBBY', 'ENTERPRISE', name='tierlevel', create_type=False),default='HOBBY',nullable=False)
+
+    # def create_user(self):
 
     def __repr__(self)->str:
-        return f"Users(id : {self.id},email:{self.email},name:{self.name},api_key:{self.api_key},created_at:{self.created_at})"
-           
-        
+        return (f"Users(id: {self.id}, email: {self.email}, name: {self.name}, "
+                f"api_key: {self.api_key}, created_at: {self.created_at})")
+    
+    def to_dict(self, exclude_password=True):
+        """
+        Convert the object into a dictionary for serialization.
+        Excludes password_hash unless explicitly included
+        """
+        user_dict = {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "api_key": self.api_key,
+            "user_inactive": self.user_inactive,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "tier_level": self.tier_level.value,
+        }
+        if not exclude_password:
+            user_dict["password_hash"] = self.password_hash
+        return user_dict
 
     urls=relationship("URL_SHORTENER",back_populates="user")
 
