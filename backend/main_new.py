@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Header
+from fastapi import FastAPI,Header,status
 from pydantic import BaseModel
 from fastapi import HTTPException,Depends
 import hashlib
@@ -15,6 +15,7 @@ from db.schema import URL_SHORTENER,Users,TierLevel
 from urllib.parse import urlparse
 import socket
 import string,random,asyncio
+from .utils import gen_password_hash,generate_api_key,verify_pass,create_token,decode_token
 
 load_dotenv()
 
@@ -29,9 +30,22 @@ class LongUrl(BaseModel):
 class BatchUrls(BaseModel):
     batch:List[LongUrl]
 
-    
+class UserCreateModel(BaseModel):
+    username:Union[str,None]=None
+    email:str
+    password:str
 
-DOMAIN="https://heystarlette/"
+class LoginInput(BaseModel):
+    email:str
+    password:str
+
+class Token(BaseModel):
+    access_token:str
+    refresh_token:str
+    token_type:str="bearer"
+
+
+# DOMAIN="https://heystarlette/"
 
 #Scope of this will be to a specific route for a single specific request ,new session for each concurrent request when passed as dependency and using proper context scope.
 async def get_session() -> AsyncGenerator[AsyncSession,None]:
@@ -493,6 +507,140 @@ async def real_time_analytics(db_session:AsyncSession=Depends(get_session), limi
         raise HTTPException(status_code=404, detail="Error in getting real time analytics")
     # return [row.to_dict() for row in data]
     return data
+
+
+"""User Routes ---->"""
+# async def user_exists(email,session):
+#     user=await get_user(email,session)
+#     return True if user else False
+
+async def get_user(email:str,session):
+    stmt=select(Users.id,Users.email,Users.api_key,Users.created_at,Users.password_hash,Users.tier_level).where(Users.email==email)
+    result=await session.execute(stmt)
+    return result.first()
+
+
+# async def user_exists_get_key(email,session):
+#     user=await get_user(email,session)
+
+#     if user.email and user.api_key:
+#         if not user.password_hash:
+#             apiKey=user.api_key
+#             return user.api_key
+#         return None
+    
+#     apiKey=None
+#     return (apiKey,)
+
+async def user_exists_get_key(email,session):
+    """also include user.api_key for checking to be consistent with old schema
+       api key won't be deleted to ensure backward compatibility for this project
+    """
+    user=await get_user(email,session)
+    print("user",user)
+    print("getkey",user.email)
+    print('passhash',user.password_hash)
+    print("tierle",user.tier_level)
+     
+    if user.email and user.api_key:
+        """the below condition will be removed after existing accounts update/add passwords"""
+        if not user.password_hash:
+            return user.api_key
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail="Account already exists with this email")
+    
+    return None
+
+
+
+async def create_user(userData:UserCreateModel,session,apiKey):
+    pass_hash=gen_password_hash(userData.password)
+    
+    new_user=Users(name=userData.username,email=userData.email,password_hash=pass_hash,api_key=apiKey)
+
+    try:
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+        return new_user
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=410,detail='User with this email already exists')
+    except Exception as e:
+        await session.rollback()
+        raise e
+    
+
+async def update_user(userData:UserCreateModel,session):
+    pass_hash=gen_password_hash(userData.password)
+
+    try:
+        stmt=update(Users).where(Users.email==userData.email).values(password_hash=pass_hash).returning(Users.id,Users.email,Users.password_hash)
+        result=await session.execute(stmt)
+        await session.commit()
+        return result.first()
+    except IntegrityError:
+        await session.rollback()
+        raise HTTPException(status_code=410,detail='User with this email already exists')
+    except Exception as e:
+        await session.rollback()
+        raise e
+
+
+
+
+#deactivate the accounts of user who don't migrate to new authentication method
+
+@app.post("/user/signup",status_code=status.HTTP_201_CREATED)
+async def create_user_account(userCreatePayload:UserCreateModel,db_session:AsyncSession=Depends(get_session)):
+    email=userCreatePayload.email
+    print("signupemail",email)
+    
+    try:
+        userExistsKey=await user_exists_get_key(email,db_session)
+
+        if userExistsKey:
+            add_password=await update_user(userCreatePayload,db_session)
+            return {"message":"Account created successfully!"}
+        
+        new_api_key = generate_api_key()
+        new_user = await create_user(userCreatePayload, db_session, new_api_key)
+        return {"message":"Account created successfully!"}
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        await db_session.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+
+
+@app.post("/user/login")
+async def login_user(loginPayload:LoginInput,db_session:AsyncSession=Depends(get_session)):
+    user=await get_user(loginPayload.email,db_session)
+
+    if not user :
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="No account exists for this email")
+    
+    if verify_pass(loginPayload.password,user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Password is incorrect")
+    
+    access_token=create_token(userIdentity={'email':user.email,'user_id':user.id})
+    refresh_token=create_token(userIdentity={'email':user.email,'user_id':user.id},refresh=True)
+    return {"message":"Login successful","access_token":access_token,"refresh_token":refresh_token,"user_id":user.id}
+    
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Handling of race conditions --
 #A race condition occurs when two or more processes or threads attempt to perform an operation on shared resources simultaneously in such a way 
