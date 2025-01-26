@@ -588,7 +588,7 @@ async def update_user(userData:UserCreateModel,session):
 
 
 
-#deactivate the accounts of user who don't migrate to new authentication method
+#we can deactivate the accounts of user who don't migrate to new authentication method within given time duration
 
 @app.post("/user/signup",status_code=status.HTTP_201_CREATED)
 async def create_user_account(userCreatePayload:UserCreateModel,db_session:AsyncSession=Depends(get_session)):
