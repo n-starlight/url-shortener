@@ -8,8 +8,8 @@ import enum
 Base=declarative_base()
 
 class TierLevel(enum.Enum):
-    HOBBY='HOBBY'
-    ENTERPRISE='ENTERPRISE'
+    HOBBY='hobby'
+    ENTERPRISE='enterprise'
 
 #ORM mapped classes -->
 class URL_SHORTENER(Base):
@@ -32,23 +32,23 @@ class URL_SHORTENER(Base):
     #     visit_cnt:{self.visit_cnt},last_accessed_at:{self.last_accessed_at},
     #     user_id:{self.user_id},deleted_at:{self.deleted_at},expiry_date:{self.expiry_date})"""
 
-    def to_dict(self):
-        """
-        to ensure response is serialised to json if not done already
-        """
+    # def to_dict(self):
+    #     """
+    #     to ensure response is serialised to json if not done already
+    #     """
    
-        return {
-            "id" : self.id,
-            "original_url":self.original_url,
-            "short_code":self.short_code,
-            "created_at":self.created_at,
-            "visit_cnt":self.visit_cnt,
-            "last_accessed_at":self.last_accessed_at,
-            "user_id":self.user_id,
-            "deleted_at":self.deleted_at,
-            "expiry_date":self.expiry_date,
-            "password":self.password
-        }
+    #     return {
+    #         "id" : self.id,
+    #         "original_url":self.original_url,
+    #         "short_code":self.short_code,
+    #         "created_at":self.created_at,
+    #         "visit_cnt":self.visit_cnt,
+    #         "last_accessed_at":self.last_accessed_at,
+    #         "user_id":self.user_id,
+    #         "deleted_at":self.deleted_at,
+    #         "expiry_date":self.expiry_date,
+    #         "password":self.password
+    #     }
 
 class Users(Base):
     __tablename__="userss"

@@ -333,7 +333,7 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
                 raise resp["error"]
             return resp
             
-    elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.ENTERPRISE:
+    elif isinstance(payload,list) and get_user_id_reqst.tier_level=='ENTERPRISE':
         async with db_session() as session:
             results=await asyncio.gather(*[process_url(payload_item,session,get_user_id_reqst) for payload_item in payload])
 
@@ -341,7 +341,7 @@ async def shorten_url(payload:Union[LongUrl,List[LongUrl]],api_key:str=Header(..
         failures=[result for result in results if result["error"] is not None]
 
         return {"successes": successes, "failures": failures}
-    elif isinstance(payload,list) and get_user_id_reqst.tier_level==TierLevel.HOBBY:
+    elif isinstance(payload,list) and get_user_id_reqst.tier_level=='HOBBY':
         raise HTTPException(status_code=400, detail="Invalid request for Hobby tier without pricing")
     else:
         raise HTTPException(status_code=422, detail="Unprocessable entity,invalid input format")
@@ -366,12 +366,11 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
     result=await db_session.execute(stmt)
     url=result.first() if result else None
 
-    if url.password and url.password!=password:
-        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
-
-
     if url is None:
        raise HTTPException(status_code=404, detail="URL not found")
+    
+    if url.password and url.password!=password:
+        raise HTTPException(status_code=401,detail="Invalid password as short code is protected")
     
     if url.expiry_date and url.expiry_date< datetime.now().date():
        raise HTTPException(status_code=410,detail="Code already expired")
@@ -386,7 +385,8 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
 @app.patch("/shorten/{short_code}")
 async def update_code(
     short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),
-    db_session:AsyncSession=Depends(get_session),jwtTokenBearer=Depends(accessTokenBearer)
+    db_session:AsyncSession=Depends(get_session)
+    # ,jwtTokenBearer=Depends(accessTokenBearer)
     ):
     get_user=await get_idntier_api_key(api_key,db_session)
     get_user_id=get_user.id if get_user else None
@@ -466,7 +466,9 @@ async def get_userid_scode(scode,session):
 
 
 @app.delete("/shorten/{short_code}")
-async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session),jwtTokenBearer=Depends(accessTokenBearer)):
+async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session),
+                    #    jwtTokenBearer=Depends(accessTokenBearer)
+                       ):
     """
     A user cannot delete other user's codes but can delete codes where no user associated with them (for already existing rows)
     """
