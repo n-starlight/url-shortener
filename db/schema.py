@@ -61,6 +61,9 @@ class Users(Base):
     created_at=Column(TIMESTAMP,default=datetime.now)
     updated_at=Column(TIMESTAMP,default=datetime.now,onupdate=datetime.now)
     tier_level=Column(Enum('HOBBY', 'ENTERPRISE', name='tierlevel', create_type=False),default='HOBBY',nullable=False)
+    #change the name of enum to lowercase as postgresql stores case sensitive names in double quotes and non case sensitive in single quotes.
+    #otherwise it will cause problem when adding new user and not specifying any value for tier_level directly
+    #First chnage in sqlalchemy using alembic and then update here in orm .
 
     # def create_user(self):
 
