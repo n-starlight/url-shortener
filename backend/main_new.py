@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import socket
 import string,random,asyncio
 from .utils import gen_password_hash,generate_api_key,verify_pass,create_token,decode_token
+from .dependencies import TokenBearer,AccessTokenBearer,RefreshTokenBearer
 
 load_dotenv()
 
@@ -43,6 +44,9 @@ class Token(BaseModel):
     access_token:str
     refresh_token:str
     token_type:str="bearer"
+
+accessTokenBearer=AccessTokenBearer()
+refreshTokenBearer=RefreshTokenBearer()
 
 
 # DOMAIN="https://heystarlette/"
@@ -380,7 +384,10 @@ async def redirect_url(short_code:str,password:Optional[str]=None,db_session:Asy
     # return response
 
 @app.patch("/shorten/{short_code}")
-async def update_code(short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
+async def update_code(
+    short_code:str,expiry_date:Optional[datetime],password:Optional[str]=None,api_key:str=Header(...),
+    db_session:AsyncSession=Depends(get_session),jwtTokenBearer=Depends(accessTokenBearer)
+    ):
     get_user=await get_idntier_api_key(api_key,db_session)
     get_user_id=get_user.id if get_user else None
 
@@ -459,7 +466,7 @@ async def get_userid_scode(scode,session):
 
 
 @app.delete("/shorten/{short_code}")
-async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session)):
+async def remove_scode(short_code:str,api_key:str=Header(...),db_session:AsyncSession=Depends(get_session),jwtTokenBearer=Depends(accessTokenBearer)):
     """
     A user cannot delete other user's codes but can delete codes where no user associated with them (for already existing rows)
     """
@@ -570,7 +577,7 @@ async def create_user(userData:UserCreateModel,session,apiKey):
         raise e
     
 
-async def update_user(userData:UserCreateModel,session):
+async def add_password(userData:UserCreateModel,session):
     pass_hash=gen_password_hash(userData.password)
 
     try:
@@ -599,7 +606,7 @@ async def create_user_account(userCreatePayload:UserCreateModel,db_session:Async
         userExistsKey=await user_exists_get_key(email,db_session)
 
         if userExistsKey:
-            add_password=await update_user(userCreatePayload,db_session)
+            userWithPass=await add_password(userCreatePayload,db_session)
             return {"message":"Account created successfully!"}
         
         new_api_key = generate_api_key()
@@ -620,14 +627,24 @@ async def login_user(loginPayload:LoginInput,db_session:AsyncSession=Depends(get
     if not user :
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="No account exists for this email")
     
-    if verify_pass(loginPayload.password,user.password_hash):
+    isPassValid=verify_pass(loginPayload.password,user.password_hash)
+    print(isPassValid)
+    if not isPassValid:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Password is incorrect")
     
     access_token=create_token(userIdentity={'email':user.email,'user_id':user.id})
     refresh_token=create_token(userIdentity={'email':user.email,'user_id':user.id},refresh=True)
-    return {"message":"Login successful","access_token":access_token,"refresh_token":refresh_token,"user_id":user.id}
+    return {"message":"Login successful","access_token":access_token,"refresh_token":refresh_token,"user":{'email':user.email,'user_id':user.id}}
     
         
+@app.get("/refresh-token")
+async def refresh_newtoken(jwtToken:dict=Depends(refreshTokenBearer)):
+    expiry=jwtToken["exp"]
+    if datetime.fromtimestamp(expiry)>datetime.now():
+        new_token=create_token(jwtToken,refresh=True)
+        return {"new_token":new_token}
+    
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,details="Expired Token")
 
 
 
