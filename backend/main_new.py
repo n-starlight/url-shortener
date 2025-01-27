@@ -639,7 +639,7 @@ async def login_user(loginPayload:LoginInput,db_session:AsyncSession=Depends(get
 @app.get("/health",status_code=200)
 async def check_connection_health(db_session:AsyncSession=Depends(get_session)):
     try:
-        await db_session.execute(select(URL_SHORTENER.id).where(id=1))
+        await db_session.execute(select(URL_SHORTENER.id).where(URL_SHORTENER.id==1))
         return {"status": "healthy","detailss":"server is running smoothly and database is connected"}
     except Exception as e:
         return {"status":"unhealthy","details":str(e)}
